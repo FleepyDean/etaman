@@ -1,0 +1,914 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Trees, Plus, List, BarChart3, Search, Filter, 
+  Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
+  XSquare, Download, Car, Tent, Home, Baby,
+  Sparkles, Bot, Loader2, AlignLeft
+} from 'lucide-react';
+
+// --- UTILITI API GEMINI ---
+const callGeminiAPI = async (prompt) => {
+  const apiKey = "";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }]
+  };
+
+  let retries = 5;
+  let delay = 1000;
+
+  while (retries > 0) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const result = await response.json();
+      return result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } catch (error) {
+      retries--;
+      if (retries === 0) {
+        console.error("Gemini API Error:", error);
+        throw new Error("Gagal menyambung ke pelayan AI. Sila cuba lagi.");
+      }
+      await new Promise(res => setTimeout(res, delay));
+      delay *= 2;
+    }
+  }
+};
+
+// --- DATA AWAL (MOCK DATA) ---
+const initialData = [
+  {
+    id: 1,
+    nama: 'Taman Merdeka',
+    lokasi: 'Jalan Kolam Ayer',
+    daerah: 'Johor Bahru',
+    keluasan: '30',
+    jenis: 'Taman Tempatan',
+    PBT: 'MBJB',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: true },
+    deskripsi: 'Taman Merdeka merupakan sebuah taman awam yang luas dan mendamaikan di tengah bandaraya Johor Bahru. Ia menawarkan persekitaran yang sesuai untuk riadah keluarga dengan kemudahan yang lengkap.'
+  },
+  {
+    id: 2,
+    nama: 'Taman Rekreasi Gunung Lambak',
+    lokasi: 'Kluang',
+    daerah: 'Kluang',
+    keluasan: '50',
+    jenis: 'Taman Rekreasi',
+    PBT: 'Rizab Hutan',
+    kemudahan: { tandas: true, playground: false, parking: true, surau: true },
+    deskripsi: 'Destinasi popular bagi pendaki dan pencinta alam. Taman Rekreasi Gunung Lambak di Kluang menyajikan keindahan alam semula jadi hutan simpan yang sesuai untuk aktiviti lasak dan santai.'
+  },
+  {
+    id: 3,
+    nama: 'Taman Botani Batu Pahat',
+    lokasi: 'Jalan Minyak Beku',
+    daerah: 'Batu Pahat',
+    keluasan: '15',
+    jenis: 'Taman Botani',
+    PBT: 'Majlis Perbandaran',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: false },
+    deskripsi: 'Taman Botani ini menyimpan pelbagai spesies flora yang unik. Sesuai sebagai tempat pembelajaran sambil beriadah, terutamanya bagi penduduk sekitar Batu Pahat.'
+  },
+  {
+    id: 4,
+    nama: 'Taman Tanjung Emas',
+    lokasi: 'Jalan Peteri',
+    daerah: 'Muar',
+    keluasan: '12',
+    jenis: 'Taman Awam',
+    PBT: 'Majlis Perbandaran',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: true },
+    deskripsi: 'Terletak di muara Sungai Muar, taman ini sangat sesuai untuk riadah petang sambil menikmati pemandangan matahari terbenam dan pesona bot-bot nelayan.'
+  },
+  {
+    id: 5,
+    nama: 'Hutan Bandar Putra',
+    lokasi: 'Bandar Putra',
+    daerah: 'Kulai',
+    keluasan: '150',
+    jenis: 'Taman Rekreasi',
+    PBT: 'Majlis Perbandaran',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: true },
+    deskripsi: 'Sebuah taman rekreasi berskala besar di Kulai yang mempunyai tasik buatan, trek joging yang teduh, dan pelbagai kemudahan riadah untuk semua lapisan umur.'
+  },
+  {
+    id: 6,
+    nama: 'Taman Tepi Laut Pontian',
+    lokasi: 'Pusat Bandar Pontian',
+    daerah: 'Pontian',
+    keluasan: '5',
+    jenis: 'Taman Awam',
+    PBT: 'Majlis Daerah',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: false },
+    deskripsi: 'Taman ini menawarkan pemandangan Selat Melaka yang indah. Ia merupakan kawasan tumpuan penduduk tempatan bersiar-siar sambil menikmati bayu laut pada waktu petang.'
+  },
+  {
+    id: 7,
+    nama: 'Taman Rekreasi Gunung Ledang',
+    lokasi: 'Sagil',
+    daerah: 'Tangkak',
+    keluasan: '100',
+    jenis: 'Taman Rekreasi',
+    PBT: 'Rizab Hutan',
+    kemudahan: { tandas: true, playground: false, parking: true, surau: true },
+    deskripsi: 'Taman rekreasi terkenal dengan air terjun yang sejuk dan jernih di kaki Gunung Ledang. Sangat sesuai untuk perkelahan keluarga dan aktiviti berkhemah.'
+  },
+  {
+    id: 8,
+    nama: 'Taman Bunga Raya',
+    lokasi: 'Jalan Awang',
+    daerah: 'Segamat',
+    keluasan: '8',
+    jenis: 'Taman Awam',
+    PBT: 'Majlis Perbandaran',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: false },
+    deskripsi: 'Taman awam utama di pusat bandar Segamat. Dilengkapi dengan taman permainan kanak-kanak dan kawasan hijau yang luas untuk aktiviti komuniti setempat.'
+  },
+  {
+    id: 9,
+    nama: 'Taman Bandar Kota Tinggi',
+    lokasi: 'Pusat Bandar',
+    daerah: 'Kota Tinggi',
+    keluasan: '10',
+    jenis: 'Taman Awam',
+    PBT: 'Majlis Daerah',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: true },
+    deskripsi: 'Taman rekreasi di tebing Sungai Johor ini sering menjadi lokasi acara komuniti dan persinggahan pelancong yang berkunjung ke daerah bersejarah ini.'
+  },
+  {
+    id: 10,
+    nama: 'Taman Riadah Pantai Mersing',
+    lokasi: 'Jalan Pantai',
+    daerah: 'Mersing',
+    keluasan: '6',
+    jenis: 'Taman Awam',
+    PBT: 'Majlis Daerah',
+    kemudahan: { tandas: true, playground: true, parking: true, surau: true },
+    deskripsi: 'Terletak berhampiran jeti utama ke pulau-pulau, taman ini menawarkan kawasan santai dengan pemandangan laut yang tenang untuk warga Mersing dan pelancong.'
+  }
+];
+
+const SENARAI_DAERAH = ['Johor Bahru', 'Kluang', 'Batu Pahat', 'Muar', 'Kulai', 'Kota Tinggi', 'Segamat', 'Pontian', 'Mersing', 'Tangkak'];
+const JENIS_TAMAN = ['Taman Tempatan', 'Taman Bandaran', 'Lot Permainan', 'Padang Permainan', 'Taman Kejiranan', 'Taman Permainan'];
+
+export default function SistemPengurusanTaman() {
+  const [tamanList, setTamanList] = useState(initialData);
+  const [activeTab, setActiveTab] = useState('senarai');
+  const [editingId, setEditingId] = useState(null);
+  const [viewingTaman, setViewingTaman] = useState(null);
+  const [tamanToDelete, setTamanToDelete] = useState(null);
+
+  // Filter & Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDaerah, setFilterDaerah] = useState('');
+  const [filterJenis, setFilterJenis] = useState('');
+  const [filterKemudahan, setFilterKemudahan] = useState({
+    tandas: false, playground: false, parking: false, surau: false
+  });
+
+  // --- FUNGSI CRUD (MODUL 1) ---
+  const handleSaveTaman = (formData) => {
+    if (editingId) {
+      setTamanList(tamanList.map(t => t.id === editingId ? { ...formData, id: editingId } : t));
+    } else {
+      const newTaman = { ...formData, id: Date.now() };
+      setTamanList([...tamanList, newTaman]);
+    }
+    setActiveTab('senarai');
+    setEditingId(null);
+  };
+
+  const handleDeleteTaman = (id) => {
+    setTamanToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    setTamanList(tamanList.filter(t => t.id !== tamanToDelete));
+    setTamanToDelete(null);
+  };
+
+  const handleEditTaman = (taman) => {
+    setEditingId(taman.id);
+    setViewingTaman(taman);
+    setActiveTab('borang');
+  };
+
+  const handleViewProfil = (taman) => {
+    setViewingTaman(taman);
+    setActiveTab('profil');
+  };
+
+  // --- FUNGSI EKSPORT (MODUL 3) ---
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Nama Taman', 'Lokasi', 'Daerah', 'Keluasan (Ekar)', 'Jenis', 'PBT', 'Tandas', 'Playground', 'Parking', 'Surau', 'Deskripsi'];
+    const csvData = tamanList.map(t => [
+      t.id, t.nama, t.lokasi, t.daerah, t.keluasan, t.jenis, t.PBT,
+      t.kemudahan.tandas ? 'Ya' : 'Tidak',
+      t.kemudahan.playground ? 'Ya' : 'Tidak',
+      t.kemudahan.parking ? 'Ya' : 'Tidak',
+      t.kemudahan.surau ? 'Ya' : 'Tidak',
+      t.deskripsi ? t.deskripsi.replace(/"/g, '""') : ''
+    ]);
+    
+    const csvContent = [headers.join(','), ...csvData.map(row => row.map(item => `"${item}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Senarai_Taman_AI.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- FILTER & SEARCH LOGIC (MODUL 3) ---
+  const filteredTaman = useMemo(() => {
+    return tamanList.filter(t => {
+      const matchSearch = t.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          t.lokasi.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchDaerah = filterDaerah ? t.daerah === filterDaerah : true;
+      const matchJenis = filterJenis ? t.jenis === filterJenis : true;
+      
+      const matchTandas = filterKemudahan.tandas ? t.kemudahan.tandas : true;
+      const matchPlayground = filterKemudahan.playground ? t.kemudahan.playground : true;
+      const matchParking = filterKemudahan.parking ? t.kemudahan.parking : true;
+      const matchSurau = filterKemudahan.surau ? t.kemudahan.surau : true;
+
+      return matchSearch && matchDaerah && matchJenis && matchTandas && matchPlayground && matchParking && matchSurau;
+    });
+  }, [tamanList, searchQuery, filterDaerah, filterJenis, filterKemudahan]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800">
+      
+      {/* SIDEBAR */}
+      <aside className="w-full md:w-64 bg-emerald-800 text-white flex flex-col">
+        <div className="p-6 flex items-center space-x-3 bg-emerald-900">
+          <Trees className="w-8 h-8 text-emerald-400" />
+          <h1 className="text-xl font-bold tracking-wide">eTaman</h1>
+        </div>
+        <nav className="flex-1 p-4 space-y-2">
+          <button 
+            onClick={() => setActiveTab('senarai')}
+            className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${activeTab === 'senarai' ? 'bg-emerald-700' : 'hover:bg-emerald-700/50'}`}
+          >
+            <List className="w-5 h-5" /> <span>Senarai Taman</span>
+          </button>
+          <button 
+            onClick={() => { setEditingId(null); setViewingTaman(null); setActiveTab('borang'); }}
+            className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${activeTab === 'borang' ? 'bg-emerald-700' : 'hover:bg-emerald-700/50'}`}
+          >
+            <Plus className="w-5 h-5" /> <span>Tambah Taman</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('laporan')}
+            className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${activeTab === 'laporan' ? 'bg-emerald-700' : 'hover:bg-emerald-700/50'}`}
+          >
+            <BarChart3 className="w-5 h-5" /> <span>Laporan</span>
+          </button>
+        </nav>
+        <div className="p-4 text-xs text-emerald-300/70 text-center">
+          © 2026 Pingu
+        </div>
+      </aside>
+
+      {/* KANDUNGAN UTAMA */}
+      <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        
+        {/* MODUL 1 & 3: SENARAI DAN CARIAN */}
+        {activeTab === 'senarai' && (
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2">Senarai Taman</h2>
+              <button onClick={handleExportCSV} className="flex items-center space-x-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition">
+                <Download className="w-4 h-4" /> <span>Eksport CSV</span>
+              </button>
+            </div>
+
+            {/* Ruangan Tapisan (Filter) */}
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari nama atau lokasi..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+                <select 
+                  value={filterDaerah} 
+                  onChange={(e) => setFilterDaerah(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                >
+                  <option value="">Semua Daerah</option>
+                  {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select 
+                  value={filterJenis} 
+                  onChange={(e) => setFilterJenis(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                >
+                  <option value="">Semua Jenis Taman</option>
+                  {JENIS_TAMAN.map(j => <option key={j} value={j}>{j}</option>)}
+                </select>
+              </div>
+
+              {/* Tapisan Kemudahan */}
+              <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
+                <span className="text-sm font-semibold text-gray-500 flex items-center"><Filter className="w-4 h-4 mr-1"/> Keperluan Kemudahan:</span>
+                {Object.keys(filterKemudahan).map(key => (
+                  <label key={key} className="flex items-center space-x-2 cursor-pointer text-sm bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-emerald-50 transition">
+                    <input 
+                      type="checkbox" 
+                      checked={filterKemudahan[key]}
+                      onChange={(e) => setFilterKemudahan({...filterKemudahan, [key]: e.target.checked})}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="capitalize">{key}</span>
+                  </label>
+                ))}
+                {(searchQuery || filterDaerah || filterJenis || Object.values(filterKemudahan).some(Boolean)) && (
+                  <button 
+                    onClick={() => {
+                      setSearchQuery(''); setFilterDaerah(''); setFilterJenis('');
+                      setFilterKemudahan({tandas: false, playground: false, parking: false, surau: false});
+                    }}
+                    className="text-xs text-red-500 hover:underline ml-auto"
+                  >
+                    Reset Filter
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Jadual Senarai */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b">
+                      <th className="p-4 font-medium">Nama Taman</th>
+                      <th className="p-4 font-medium">Daerah</th>
+                      <th className="p-4 font-medium">Jenis</th>
+                      <th className="p-4 font-medium text-center">Kemudahan Utama</th>
+                      <th className="p-4 font-medium text-right">Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredTaman.length > 0 ? filteredTaman.map((taman) => (
+                      <tr key={taman.id} className="hover:bg-emerald-50/30 transition-colors">
+                        <td className="p-4">
+                          <div className="font-semibold text-gray-800">{taman.nama}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{taman.lokasi}</div>
+                        </td>
+                        <td className="p-4 text-gray-600">{taman.daerah}</td>
+                        <td className="p-4 text-gray-600">
+                          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs border border-blue-100">
+                            {taman.jenis}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex justify-center gap-1 text-gray-400">
+                            {taman.kemudahan.tandas && <span title="Tandas" className="text-emerald-600">🚽</span>}
+                            {taman.kemudahan.playground && <span title="Playground" className="text-emerald-600">🛝</span>}
+                            {taman.kemudahan.parking && <span title="Parking" className="text-emerald-600">🅿️</span>}
+                            {taman.kemudahan.surau && <span title="Surau" className="text-emerald-600">🕌</span>}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right space-x-2">
+                          <button onClick={() => handleViewProfil(taman)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Lihat Profil">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleEditTaman(taman)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Kemaskini">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteTaman(taman.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Padam">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="5" className="p-8 text-center text-gray-500">
+                          Tiada taman dijumpai berdasarkan carian/tapisan anda.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODUL 1 & 2: BORANG TAMBAH / KEMASKINI */}
+        {activeTab === 'borang' && (
+          <BorangTaman 
+            tamanSediaAda={viewingTaman} 
+            onSave={handleSaveTaman} 
+            onCancel={() => setActiveTab('senarai')} 
+          />
+        )}
+
+        {/* MODUL 2: PROFIL TAMAN */}
+        {activeTab === 'profil' && viewingTaman && (
+          <ProfilTaman taman={viewingTaman} onBack={() => setActiveTab('senarai')} />
+        )}
+
+        {/* MODUL 3: LAPORAN & STATISTIK */}
+        {activeTab === 'laporan' && (
+          <LaporanStatistik tamanList={tamanList} />
+        )}
+
+      </main>
+
+      {/* Tetingkap Pengesahan Padam (Delete Modal) */}
+      {tamanToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-14 h-14 mx-auto mb-4 bg-red-100 rounded-full">
+              <Trash2 className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-gray-800 mb-2">Sahkan Padaman</h3>
+            <p className="text-center text-gray-600 mb-6">
+              Adakah anda pasti untuk memadam rekod taman ini? Tindakan ini tidak boleh dipulihkan.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button 
+                onClick={() => setTamanToDelete(null)}
+                className="px-5 py-2.5 text-gray-700 font-medium bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="px-5 py-2.5 text-white font-medium bg-red-600 rounded-xl hover:bg-red-700 transition shadow-md hover:shadow-lg"
+              >
+                Ya, Padam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// KOMPONEN: BORANG TAMAN (MODUL 1 & 2 & AI)
+// ==========================================
+function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
+  const [formData, setFormData] = useState(tamanSediaAda || {
+    nama: '', lokasi: '', daerah: '', keluasan: '', jenis: '', PBT: '',
+    kemudahan: { tandas: false, playground: false, parking: false, surau: false },
+    deskripsi: ''
+  });
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckbox = (e) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({
+      ...prev, kemudahan: { ...prev.kemudahan, [name]: checked }
+    }));
+  };
+
+  const generateAIDescription = async () => {
+    if (!formData.nama || !formData.daerah) {
+      alert("Sila isi sekurang-kurangnya Nama Taman dan Daerah sebelum menjana deskripsi.");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const fasiliti = Object.entries(formData.kemudahan)
+        .filter(([_, isTrue]) => isTrue)
+        .map(([key]) => key)
+        .join(", ");
+      
+      const prompt = `Tulis satu perenggan deskripsi (sekitar 2-3 ayat) yang memukau dan profesional dalam Bahasa Melayu untuk sebuah profil taman. 
+      Maklumat taman adalah seperti berikut:
+      Nama: ${formData.nama}
+      Lokasi: ${formData.lokasi || '-'}
+      Daerah: ${formData.daerah}
+      Jenis: ${formData.jenis}
+      Kemudahan sedia ada: ${fasiliti || 'Tiada maklumat kemudahan'}.
+      Jadikan ia kedengaran mengalu-alukan pengunjung untuk datang beriadah.`;
+
+      const generatedText = await callGeminiAPI(prompt);
+      setFormData(prev => ({ ...prev, deskripsi: generatedText.trim() }));
+    } catch (error) {
+      alert("Ralat semasa menjana deskripsi AI.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2">
+          {tamanSediaAda ? 'Kemaskini Maklumat Taman' : 'Daftar Taman Baru'}
+        </h2>
+        <button onClick={onCancel} className="text-gray-500 hover:text-gray-800">Kembali</button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100 space-y-8">
+        {/* Seksyen Maklumat Asas */}
+        <div>
+          <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center"><MapPin className="w-5 h-5 mr-2"/> Maklumat Asas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Nama Taman <span className="text-red-500">*</span></label>
+              <input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: Taman Botani" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Lokasi / Alamat Lengkap <span className="text-red-500">*</span></label>
+              <input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: Jalan Tasek Utara" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Daerah <span className="text-red-500">*</span></label>
+              <select required name="daerah" value={formData.daerah} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                <option value="" disabled>Pilih Daerah</option>
+                {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Keluasan (Ekar)</label>
+              <input type="number" step="0.01" name="keluasan" value={formData.keluasan} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: 15.5" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Jenis Taman <span className="text-red-500">*</span></label>
+              <select required name="jenis" value={formData.jenis} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                <option value="" disabled>Pilih Taman</option>
+                {JENIS_TAMAN.map(j => <option key={j} value={j}>{j}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">PBT</label>
+              <input type="text" name="PBT" value={formData.PBT} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: MBIP, MBJB" />
+            </div>
+          </div>
+        </div>
+
+        {/* Seksyen Kemudahan (Modul 2) */}
+        <div className="pt-6 border-t border-gray-100">
+          <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center"><Tent className="w-5 h-5 mr-2"/> Kemudahan Sedia Ada</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.tandas ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <Baby className="w-8 h-8 mb-2 opacity-80" />
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" name="tandas" checked={formData.kemudahan.tandas} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
+                <span className="font-medium">Tandas</span>
+              </div>
+            </label>
+            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.playground ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <Trees className="w-8 h-8 mb-2 opacity-80" />
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" name="playground" checked={formData.kemudahan.playground} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
+                <span className="font-medium">Taman Permainan</span>
+              </div>
+            </label>
+            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.parking ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <Car className="w-8 h-8 mb-2 opacity-80" />
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" name="parking" checked={formData.kemudahan.parking} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
+                <span className="font-medium">Tempat Letak Kereta</span>
+              </div>
+            </label>
+            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.surau ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
+              <Home className="w-8 h-8 mb-2 opacity-80" />
+              <div className="flex items-center space-x-2">
+                <input type="checkbox" name="surau" checked={formData.kemudahan.surau} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
+                <span className="font-medium">Surau / Tempat Ibadat</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Seksyen Deskripsi Taman dengan AI */}
+        <div className="pt-6 border-t border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-emerald-800 flex items-center"><AlignLeft className="w-5 h-5 mr-2"/> Deskripsi Profil Taman</h3>
+            <button 
+              type="button" 
+              onClick={generateAIDescription}
+              disabled={isGenerating}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium disabled:opacity-50"
+            >
+              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>✨ Jana Automatik (AI)</span>
+            </button>
+          </div>
+          <textarea 
+            name="deskripsi" 
+            value={formData.deskripsi} 
+            onChange={handleChange} 
+            rows="4" 
+            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-gray-700 bg-gray-50"
+            placeholder="Taip deskripsi taman di sini atau gunakan butang ✨ Jana Automatik untuk menghasilkan deskripsi menggunakan AI..."
+          />
+        </div>
+
+        <div className="pt-6 border-t border-gray-100 flex justify-end space-x-3">
+          <button type="button" onClick={onCancel} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+            Batal
+          </button>
+          <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-md">
+            {tamanSediaAda ? 'Simpan Perubahan' : 'Daftar Taman'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ==========================================
+// KOMPONEN: PROFIL TAMAN (MODUL 2)
+// ==========================================
+function ProfilTaman({ taman, onBack }) {
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-300">
+      <button onClick={onBack} className="text-emerald-600 hover:text-emerald-800 font-medium flex items-center mb-4">
+        &larr; Kembali
+      </button>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Header Profil */}
+        <div className="bg-gradient-to-r from-emerald-700 to-emerald-500 p-8 text-white relative overflow-hidden">
+          <Trees className="absolute -right-10 -bottom-10 w-64 h-64 opacity-10 text-emerald-900" />
+          <div className="relative z-10">
+            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold tracking-wider uppercase mb-3 backdrop-blur-sm">
+              {taman.jenis}
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mb-2">{taman.nama}</h2>
+            <div className="flex items-center text-emerald-50 space-x-4 text-sm md:text-base">
+              <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" /> {taman.daerah}</span>
+              <span className="flex items-center"><Ruler className="w-4 h-4 mr-1" /> {taman.keluasan || 'N/A'} Ekar</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8 space-y-8">
+          {/* Deskripsi (AI or Manual) */}
+          {taman.deskripsi && (
+            <div className="bg-emerald-50/50 p-6 rounded-xl border border-emerald-100">
+              <p className="text-gray-700 leading-relaxed text-lg">{taman.deskripsi}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Maklumat Lengkap */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Maklumat Terperinci</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Lokasi Penuh</p>
+                  <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{taman.lokasi}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">PBT</p>
+                    <p className="font-medium text-gray-800">{taman.PBT || 'Tidak dinyatakan'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">ID Pendaftaran</p>
+                    <p className="font-medium text-gray-800 text-sm font-mono bg-gray-100 px-2 py-1 rounded inline-block">TMN-{taman.id}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Kemudahan */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Status Kemudahan</h3>
+              <ul className="space-y-3">
+                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="flex items-center space-x-3 text-gray-700">
+                    <Baby className="w-5 h-5 text-emerald-600" />
+                    <span className="font-medium">Tandas Awam</span>
+                  </div>
+                  {taman.kemudahan.tandas ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                </li>
+                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="flex items-center space-x-3 text-gray-700">
+                    <Trees className="w-5 h-5 text-emerald-600" />
+                    <span className="font-medium">Taman Permainan</span>
+                  </div>
+                  {taman.kemudahan.playground ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                </li>
+                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="flex items-center space-x-3 text-gray-700">
+                    <Car className="w-5 h-5 text-emerald-600" />
+                    <span className="font-medium">Tempat Letak Kereta</span>
+                  </div>
+                  {taman.kemudahan.parking ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                </li>
+                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                  <div className="flex items-center space-x-3 text-gray-700">
+                    <Home className="w-5 h-5 text-emerald-600" />
+                    <span className="font-medium">Surau</span>
+                  </div>
+                  {taman.kemudahan.surau ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// KOMPONEN: LAPORAN & STATISTIK (MODUL 3 + AI)
+// ==========================================
+function LaporanStatistik({ tamanList }) {
+  const [aiInsights, setAiInsights] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Pengiraan Statistik
+  const jumlahTaman = tamanList.length;
+  const jumlahKeluasan = tamanList.reduce((acc, curr) => acc + (parseFloat(curr.keluasan) || 0), 0);
+  
+  // Kiraan mengikut Daerah
+  const taburanDaerah = useMemo(() => {
+    const counts = {};
+    tamanList.forEach(t => {
+      counts[t.daerah] = (counts[t.daerah] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [tamanList]);
+
+  // Kiraan mengikut Jenis
+  const taburanJenis = useMemo(() => {
+    const counts = {};
+    tamanList.forEach(t => {
+      counts[t.jenis] = (counts[t.jenis] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [tamanList]);
+
+  const generateAIInsights = async () => {
+    setIsAnalyzing(true);
+    try {
+      // Sediakan ringkasan data untuk AI
+      const summaryData = {
+        jumlahTaman,
+        jumlahKeluasan,
+        taburanIkutDaerah: Object.fromEntries(taburanDaerah),
+        taburanIkutJenis: Object.fromEntries(taburanJenis),
+        senaraiTaman: tamanList.map(t => ({
+          nama: t.nama, daerah: t.daerah, tandas: t.kemudahan.tandas, surau: t.kemudahan.surau
+        }))
+      };
+
+      const prompt = `Sebagai seorang perunding pakar perancangan bandar dan pengurusan taman, sila analisis data taman berikut: 
+      ${JSON.stringify(summaryData)}
+      
+      Berikan 3 pemerhatian utama atau cadangan strategik yang padat dalam Bahasa Melayu untuk pihak pengurusan bagi meningkatkan kualiti taman-taman ini. 
+      Formatkan jawapan anda dalam bentuk "bullet points" (*). Jangan berikan pengenalan yang panjang, terus kepada isi penting.`;
+
+      const insights = await callGeminiAPI(prompt);
+      setAiInsights(insights);
+    } catch (error) {
+      alert("Gagal menjana analisis AI.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2 inline-block">Laporan & Analitik Data</h2>
+      
+      {/* Kad Ringkasan */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-emerald-500 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Keseluruhan Taman</p>
+            <h3 className="text-3xl font-bold text-gray-800">{jumlahTaman}</h3>
+          </div>
+          <Trees className="w-12 h-12 text-emerald-100" />
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-blue-500 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Keluasan (Ekar)</p>
+            <h3 className="text-3xl font-bold text-gray-800">{jumlahKeluasan.toFixed(2)}</h3>
+          </div>
+          <Map className="w-12 h-12 text-blue-100" />
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-amber-500 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500 mb-1">Daerah Tertinggi</p>
+            <h3 className="text-xl font-bold text-gray-800">{taburanDaerah.length > 0 ? taburanDaerah[0][0] : 'Tiada'}</h3>
+            <p className="text-sm text-gray-500">{taburanDaerah.length > 0 ? `${taburanDaerah[0][1]} Taman` : ''}</p>
+          </div>
+          <MapPin className="w-12 h-12 text-amber-100" />
+        </div>
+      </div>
+
+      {/* --- SEKSYEN AI INSIGHTS --- */}
+      <div className="bg-gradient-to-r from-indigo-900 to-purple-900 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
+        <Bot className="absolute -right-6 -top-6 w-32 h-32 opacity-10" />
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+            <div>
+              <h3 className="text-xl font-bold flex items-center"><Sparkles className="w-5 h-5 mr-2 text-yellow-300" /> Penasihat Pengurusan AI</h3>
+              <p className="text-indigo-200 text-sm mt-1">Jana rumusan pintar dan cadangan penambahbaikan bersandarkan data taman semasa.</p>
+            </div>
+            <button 
+              onClick={generateAIInsights}
+              disabled={isAnalyzing}
+              className="px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg backdrop-blur-sm transition flex items-center font-medium disabled:opacity-50"
+            >
+              {isAnalyzing ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Bot className="w-5 h-5 mr-2" />}
+              ✨ Analisis Data Sekarang
+            </button>
+          </div>
+
+          {aiInsights && (
+            <div className="mt-6 bg-black/20 p-5 rounded-lg border border-white/10">
+              <ul className="space-y-3 text-indigo-50">
+                {aiInsights.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+                  <li key={i} className="flex items-start">
+                    <span className="mr-3 text-yellow-300 mt-1">•</span>
+                    <span dangerouslySetInnerHTML={{ __html: line.replace(/^\*+|\*+$/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Carta Bar Mudah: Taburan Mengikut Daerah */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Bilangan Taman Mengikut Daerah</h3>
+          <div className="space-y-4">
+            {taburanDaerah.map(([daerah, count]) => {
+              const peratus = (count / jumlahTaman) * 100;
+              return (
+                <div key={daerah}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-700">{daerah}</span>
+                    <span className="text-gray-500">{count} taman ({peratus.toFixed(1)}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2.5">
+                    <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: `${peratus}%` }}></div>
+                  </div>
+                </div>
+              );
+            })}
+            {taburanDaerah.length === 0 && <p className="text-gray-400 text-center py-4">Tiada data direkodkan.</p>}
+          </div>
+        </div>
+
+        {/* Taburan Mengikut Jenis */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Pecahan Mengikut Jenis Taman</h3>
+          <div className="space-y-4">
+            {taburanJenis.map(([jenis, count]) => {
+              const peratus = (count / jumlahTaman) * 100;
+              return (
+                <div key={jenis} className="flex items-center p-3 hover:bg-gray-50 rounded-lg transition border border-transparent hover:border-gray-100">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-4">
+                    <Trees className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800">{jenis}</h4>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-gray-800">{count}</div>
+                  </div>
+                </div>
+              );
+            })}
+            {taburanJenis.length === 0 && <p className="text-gray-400 text-center py-4">Tiada data direkodkan.</p>}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
