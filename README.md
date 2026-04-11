@@ -26,7 +26,7 @@ This system solves the issue of delayed and fragmented data collection from loca
 
 Follow these steps to set up and run the eTaman system on your local machine.
 
-### 1. Installation
+### Installation
 
 Run the following commands in your terminal to create the project and install all necessary dependencies:
 
@@ -48,3 +48,10 @@ npx tailwindcss init
 
 # Install Lucide React for UI icons
 npm install lucide-react
+
+```
+
+### Start the local development server:
+```bash
+npm run dev
+```
