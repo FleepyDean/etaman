@@ -1,16 +1,50 @@
-# React + Vite
+# 🌳 eTaman - Park Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, centralized web application prototype developed for **Jabatan Landskap Negeri Johor (JLNJ)** to streamline the collection, management, and analysis of public park data across all districts. 
 
-Currently, two official plugins are available:
+This system solves the issue of delayed and fragmented data collection from local authorities (PBT) by providing a standardized, easy-to-use platform with built-in AI capabilities.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Features
 
-## React Compiler
+* 📝 **Centralized Data Management (CRUD):** Add, view, edit, and delete park records with a standardized template to prevent data overlapping.
+* 🔍 **Smart Filtering & Search:** Filter parks by district, park type, and specific facilities (e.g., toilet, playground, parking, prayer room).
+* ✨ **AI-Powered Generation:** Utilizes the Google Gemini API to instantly generate professional park descriptions based on input data.
+* 📊 **Dashboard Analytics & AI Insights:** Visualizes park distributions and provides AI-driven strategic recommendations for park management.
+* 📥 **CSV Export:** Download the complete park database into an Excel-ready format with a single click.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Technology Stack
 
-## Expanding the ESLint configuration
+* **Frontend:** React.js
+* **Styling:** Tailwind CSS
+* **Icons:** Lucide React
+* **Build Tool:** Vite
+* **AI Integration:** Google Gemini API
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🚀 Getting Started
+
+Follow these steps to set up and run the eTaman system on your local machine.
+
+### 1. Installation
+
+Run the following commands in your terminal to create the project and install all necessary dependencies:
+
+```bash
+# Create a new Vite React project
+npm create vite@latest etaman -- --template react
+
+# Navigate into the project directory
+cd etaman
+
+# Install base dependencies
+npm install
+
+# Install Tailwind CSS and its peer dependencies
+npm install -D tailwindcss@3 postcss autoprefixer
+
+# Initialize Tailwind configuration
+npx tailwindcss init
+
+# Install Lucide React for UI icons
+npm install lucide-react
