@@ -1,13 +1,13 @@
 # 🌳 eTaman - Park Management System
 
-A modern, centralized web application prototype developed for **Jabatan Landskap Negeri Johor (JLNJ)** to streamline the collection, management, and analysis of public park data across all districts. 
+A modern, centralized web application prototype developed for **Jabatan Landskap Negeri Johor (JLNJ)** to streamline the collection, management and analysis of public park data across all districts.
 
 This system solves the issue of delayed and fragmented data collection from local authorities (PBT) by providing a standardized, easy-to-use platform with built-in AI capabilities.
 
 ## ✨ Features
 
-* 📝 **Centralized Data Management (CRUD):** Add, view, edit, and delete park records with a standardized template to prevent data overlapping.
-* 🔍 **Smart Filtering & Search:** Filter parks by district, park type, and specific facilities (e.g., toilet, playground, parking, prayer room).
+* 📝 **Centralized Data Management (CRUD):** Add, view, edit and delete park records with a standardized template to prevent data overlapping.
+* 🔍 **Smart Filtering & Search:** Filter parks by district, park type and specific facilities (e.g., toilet, playground, parking, prayer room).
 * ✨ **AI-Powered Generation:** Utilizes the Google Gemini API to instantly generate professional park descriptions based on input data.
 * 📊 **Dashboard Analytics & AI Insights:** Visualizes park distributions and provides AI-driven strategic recommendations for park management.
 * 📥 **CSV Export:** Download the complete park database into an Excel-ready format with a single click.
