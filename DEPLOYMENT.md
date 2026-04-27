@@ -1,67 +1,61 @@
-# 🚀 eTaman Deployment Guide
+# eTaman Deployment Guide
 
 ## Prerequisites
 - Git repository initialized
 - Environment variables configured
-- Accounts created on Vercel and Render
-- A production PostgreSQL database on Render
+- Accounts created on Vercel and Railway
+- An existing production PostgreSQL database connection string (any provider)
 
 ---
 
 ## Recommended Setup
 
-- Frontend: [Vercel](https://vercel.com)
-- Backend: [Render](https://render.com)
-- Database: Render PostgreSQL
+- Frontend: Vercel
+- Backend: Railway
+- Database: Your existing PostgreSQL database
 
-This split is the simplest path for this repo:
+This split is simple for this repo:
 - Vercel serves the React app built by Vite
-- Render runs the Django API with Gunicorn
-- Render PostgreSQL stores the data
+- Railway runs the Django API with Gunicorn
+- Django connects using DATABASE_URL to your existing DB
 
 ---
 
-## 1. Deploy the Backend on Render
+## 1. Deploy the Backend on Railway
 
-### Create the Render service
+### Create the Railway service
 1. Push this repo to GitHub.
-2. In Render, create a new **Web Service** from the repository.
-3. Use the settings below.
+2. In Railway, create a new project and add a service from your repository.
+3. In the service settings, set Root Directory to django_backend.
+4. Keep railway.toml in the repo so Railway uses the same build/start commands.
 
 ### Build and start commands
-Use these values in Render:
+Use these values in Railway service settings:
 
-```bash
-Build Command: cd django_backend && pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
-Start Command: cd django_backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
-```
+Build Command: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+Start Command: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
 
-### Environment variables on Render
-Set these in the Render dashboard:
+### Environment variables on Railway
+Set these in Railway Variables:
 
-```text
 DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=your-generated-secret-key
-DJANGO_ALLOWED_HOSTS=your-render-service.onrender.com
-DATABASE_URL=your-render-postgres-connection-string
+DJANGO_ALLOWED_HOSTS=your-railway-service.up.railway.app
+DATABASE_URL=your-existing-postgres-connection-string
 CORS_ALLOWED_ORIGINS=https://your-vercel-app.vercel.app
 CSRF_TRUSTED_ORIGINS=https://your-vercel-app.vercel.app
-```
 
-### Add PostgreSQL on Render
-1. Create a **Render PostgreSQL** database.
-2. Copy the internal database URL into `DATABASE_URL`.
-3. Redeploy the web service after the variable is set.
+### Using your existing database
+1. Keep your current database running where it is.
+2. Paste that connection string into DATABASE_URL in Railway.
+3. Redeploy service so migrations run against that DB.
 
 ### After deploy
-1. Open the Render service URL.
-2. Verify `/api/taman/` returns JSON.
-3. Create a superuser if needed:
+1. Open your Railway service URL.
+2. Verify /api/taman/ returns JSON.
+3. Create a superuser in Railway shell:
 
-```bash
-cd django_backend
 python manage.py createsuperuser
-```
 
 ---
 
@@ -69,68 +63,51 @@ python manage.py createsuperuser
 
 ### Create the Vercel project
 1. In Vercel, import the same GitHub repository.
-2. Set the project root to the repository root.
+2. Set the project root to repository root.
 3. Vercel should detect Vite automatically.
 
 ### Build settings
-Use the default Vercel Vite settings or set them explicitly:
-
-```text
 Framework Preset: Vite
 Build Command: npm run build
 Output Directory: dist
-```
 
 ### Environment variables on Vercel
-Set the backend API URL for the frontend:
+Set the backend API URL for frontend:
 
-```text
-VITE_API_BASE_URL=https://your-render-service.onrender.com
-```
+VITE_API_BASE_URL=https://your-railway-service.up.railway.app
 
 ### Deploy
-1. Trigger a deploy in Vercel.
+1. Trigger deploy in Vercel.
 2. Open the Vercel URL.
-3. Confirm the app loads and API requests go to Render.
+3. Confirm app loads and API requests go to Railway.
 
 ---
 
 ## Production Checklist
 
-- [ ] Set `DJANGO_DEBUG=False`
-- [ ] Generate secure `DJANGO_SECRET_KEY`
-- [ ] Configure `DJANGO_ALLOWED_HOSTS` with the Render service hostname
-- [ ] Configure Render PostgreSQL database
-- [ ] Set `CORS_ALLOWED_ORIGINS` to the Vercel URL
-- [ ] Run `python manage.py migrate`
-- [ ] Run `python manage.py collectstatic --noinput`
+- [ ] Set DJANGO_DEBUG=False
+- [ ] Generate secure DJANGO_SECRET_KEY
+- [ ] Configure DJANGO_ALLOWED_HOSTS with Railway hostname
+- [ ] Set DATABASE_URL to your existing production PostgreSQL DB
+- [ ] Set CORS_ALLOWED_ORIGINS to Vercel URL
+- [ ] Run python manage.py migrate
+- [ ] Run python manage.py collectstatic --noinput
 - [ ] Create superuser account
-- [ ] Verify media uploads work in production
+- [ ] Verify media uploads in production
 - [ ] Monitor logs and errors
-- [ ] Enable CSRF protection
-- [ ] Update API_BASE_URL in frontend
 
 ---
 
 ## Post-Deployment
 
-### Update Frontend API URL
-In `src/App.jsx`, the API URL is auto-detected from environment:
-```javascript
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-```
+Set in frontend environment:
 
-Set in `.env.production`:
-```
-VITE_API_BASE_URL=https://your-render-service.onrender.com
-```
+VITE_API_BASE_URL=https://your-railway-service.up.railway.app
 
-### Monitor & Maintain
-- Check logs regularly
-- Set up error tracking (Sentry)
-- Monitor database size
-- Regular backups
-- Update dependencies monthly
+Monitor regularly:
+- Application logs
+- Database size and performance
+- Dependency updates
 
 ---
 
