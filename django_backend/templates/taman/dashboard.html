@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+
+{% block title %}eTaman - Dashboard{% endblock %}
+
+{% block body %}
+<div class="container-fluid app-shell">
+  <div class="row">
+    <aside class="col-12 col-md-3 col-lg-2 p-0 sidebar text-white d-flex flex-column">
+      <div class="brand p-4 fw-bold fs-5 d-flex align-items-center gap-2">
+        <i class="bi bi-tree-fill text-success"></i>
+        <span>eTaman</span>
+      </div>
+      <nav class="p-3 d-grid gap-2 flex-grow-1">
+        <a class="sidebar-link {% if active_tab == 'senarai' %}active{% endif %}" href="/?tab=senarai"><i class="bi bi-list-ul"></i><span>Senarai Taman</span></a>
+        <a class="sidebar-link {% if active_tab == 'borang' %}active{% endif %}" href="/?tab=borang"><i class="bi bi-plus-square"></i><span>Tambah Taman</span></a>
+        <a class="sidebar-link {% if active_tab == 'laporan' %}active{% endif %}" href="/?tab=laporan"><i class="bi bi-bar-chart"></i><span>Laporan</span></a>
+      </nav>
+      <div class="p-3 text-center small text-success-subtle">&copy; 2026 Pingu</div>
+    </aside>
+
+    <main class="col-12 col-md-9 col-lg-10 p-4 p-md-5">
+      {% if active_tab == 'senarai' %}
+      <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
+        <h2 class="m-0 section-title">Senarai Taman</h2>
+        <a href="{% url 'export_csv' %}" class="btn btn-success-subtle text-success-emphasis border border-success-subtle">
+          <i class="bi bi-download me-1"></i>Eksport CSV
+        </a>
+      </div>
+
+      <form method="get" class="card-soft bg-white p-3 p-md-4 mb-4">
+        <input type="hidden" name="tab" value="senarai" />
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <input class="form-control" type="text" name="search" placeholder="Cari nama atau lokasi..." value="{{ search }}" />
+          </div>
+          <div class="col-12 col-md-4">
+            <select name="daerah" class="form-select">
+              <option value="">Semua Daerah</option>
+              {% for d in senarai_daerah %}
+              <option value="{{ d }}" {% if selected_daerah == d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <select name="jenis" class="form-select">
+              <option value="">Semua Jenis Taman</option>
+              {% for j in jenis_taman %}
+              <option value="{{ j }}" {% if selected_jenis == j %}selected{% endif %}>{{ j }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+            <span class="text-secondary small me-2"><i class="bi bi-funnel"></i> Keperluan Kemudahan:</span>
+            <label class="filter-pill"><input type="checkbox" name="tandas" value="1" {% if filter_tandas %}checked{% endif %}> Tandas</label>
+            <label class="filter-pill"><input type="checkbox" name="playground" value="1" {% if filter_playground %}checked{% endif %}> Playground</label>
+            <label class="filter-pill"><input type="checkbox" name="parking" value="1" {% if filter_parking %}checked{% endif %}> Parking</label>
+            <label class="filter-pill"><input type="checkbox" name="surau" value="1" {% if filter_surau %}checked{% endif %}> Surau</label>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-success" type="submit">Cari</button>
+          <a href="/?tab=senarai" class="btn btn-outline-secondary">Reset</a>
+        </div>
+      </form>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Jumlah Keseluruhan Taman</small>
+            <div class="fs-3 fw-bold">{{ jumlah_taman }}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Jumlah Keluasan (Ekar)</small>
+            <div class="fs-3 fw-bold">{{ jumlah_keluasan|default:0 }}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Daerah Tertinggi</small>
+            <div class="fs-5 fw-bold">{% if taburan_daerah %}{{ taburan_daerah.0.daerah }}{% else %}Tiada{% endif %}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-soft bg-white p-3 mb-4" id="tambah">
+        <h4 class="mb-3 section-title">Tambah Taman</h4>
+        <form method="post">
+          {% csrf_token %}
+          <div class="row g-3">
+            {% for field in form %}
+            <div class="col-12 {% if field.name == 'deskripsi' %}col-md-12{% else %}col-md-6{% endif %}">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small">{{ field.errors|join:', ' }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <button class="btn btn-success mt-3" type="submit">Simpan Taman</button>
+        </form>
+      </div>
+
+      <div class="card-soft bg-white p-3">
+        <div class="table-responsive">
+          <table class="table table-clean align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Nama Taman</th>
+                <th>Daerah</th>
+                <th>Jenis</th>
+                <th>Kemudahan</th>
+                <th class="text-end">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for taman in taman_list %}
+              <tr>
+                <td>
+                  <div class="fw-semibold">{{ taman.nama }}</div>
+                  <div class="text-secondary small">{{ taman.lokasi }}</div>
+                </td>
+                <td>{{ taman.daerah }}</td>
+                <td><span class="chip">{{ taman.jenis }}</span></td>
+                <td>
+                  {% if taman.tandas %}<span>WC </span>{% endif %}
+                  {% if taman.playground %}<span>Playground </span>{% endif %}
+                  {% if taman.parking %}<span>Parking </span>{% endif %}
+                  {% if taman.surau %}<span>Surau</span>{% endif %}
+                </td>
+                <td class="text-end">
+                  <a class="btn btn-sm action-btn btn-outline-primary" href="/?tab=profil&taman={{ taman.id }}" title="Lihat Profil"><i class="bi bi-eye"></i></a>
+                  <a class="btn btn-sm action-btn btn-outline-warning" href="/?tab=borang&edit={{ taman.id }}" title="Kemaskini"><i class="bi bi-pencil"></i></a>
+                  <form method="post" action="{% url 'delete_taman' taman.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm action-btn btn-outline-danger" type="submit" title="Padam"><i class="bi bi-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-secondary py-5">Tiada taman dijumpai.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if active_tab == 'borang' %}
+      <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
+        <h2 class="m-0 section-title">{% if editing_taman %}Kemaskini Maklumat Taman{% else %}Daftar Taman Baru{% endif %}</h2>
+        <a href="/?tab=senarai" class="btn btn-outline-secondary">Kembali</a>
+      </div>
+
+      <div class="card-soft bg-white p-3 p-md-4">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="editing_id" value="{% if editing_taman %}{{ editing_taman.id }}{% endif %}" />
+          <div class="row g-3">
+            {% for field in form %}
+            <div class="col-12 {% if field.name == 'deskripsi' %}col-md-12{% else %}col-md-6{% endif %}">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}<div class="text-danger small">{{ field.errors|join:', ' }}</div>{% endif %}
+              {% if field.help_text %}<div class="text-secondary small">{{ field.help_text }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-success" type="submit">{% if editing_taman %}Simpan Perubahan{% else %}Daftar Taman{% endif %}</button>
+            <a href="/?tab=senarai" class="btn btn-outline-secondary">Batal</a>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+
+      {% if active_tab == 'laporan' %}
+      <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
+        <h2 class="m-0 section-title">Laporan & Analitik Data</h2>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Jumlah Keseluruhan Taman</small>
+            <div class="fs-3 fw-bold">{{ jumlah_taman }}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Jumlah Keluasan (Ekar)</small>
+            <div class="fs-3 fw-bold">{{ jumlah_keluasan|default:0 }}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="card-soft bg-white p-3">
+            <small class="text-secondary">Daerah Tertinggi</small>
+            <div class="fs-5 fw-bold">{% if taburan_daerah %}{{ taburan_daerah.0.daerah }}{% else %}Tiada{% endif %}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-12 col-lg-6">
+          <div class="card-soft bg-white p-3 p-md-4">
+            <h5 class="mb-3">Bilangan Taman Mengikut Daerah</h5>
+            {% for item in taburan_daerah %}
+            <div class="mb-3">
+              <div class="d-flex justify-content-between small mb-1">
+                <span>{{ item.daerah }}</span>
+                <span>{{ item.total }} taman</span>
+              </div>
+              {% widthratio item.total jumlah_taman 100 as peratus %}
+              <div class="progress" role="progressbar" aria-valuenow="{{ item.total }}" aria-valuemin="0" aria-valuemax="{{ jumlah_taman }}">
+                <div class="progress-bar bg-success js-progress-bar" data-width="{{ peratus }}"></div>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-secondary">Tiada data.</p>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card-soft bg-white p-3 p-md-4">
+            <h5 class="mb-3">Pecahan Mengikut Jenis Taman</h5>
+            {% for item in taburan_jenis %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-3 mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-tree text-success"></i>
+                <span class="fw-medium">{{ item.jenis }}</span>
+              </div>
+              <span class="fw-bold">{{ item.total }}</span>
+            </div>
+            {% empty %}
+            <p class="text-secondary">Tiada data.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if active_tab == 'profil' %}
+      {% if selected_taman %}
+      <div class="mb-4">
+        <a href="/?tab=senarai" class="btn btn-link ps-0 text-success">&larr; Kembali ke Senarai</a>
+      </div>
+      <div class="card-soft bg-white overflow-hidden" style="max-width: 980px;">
+        <div class="p-4 p-md-5 text-white hero-head position-relative overflow-hidden">
+          <i class="bi bi-tree-fill position-absolute" style="right: 1rem; bottom: -1.5rem; font-size: 8rem; opacity: .12;"></i>
+          <span class="badge rounded-pill text-bg-light bg-opacity-25 mb-3">{{ selected_taman.jenis }}</span>
+          <h1 class="m-0 fw-bold">{{ selected_taman.nama }}</h1>
+          <p class="mb-0 mt-2">{{ selected_taman.daerah }} | {{ selected_taman.keluasan|default:'N/A' }} Ekar</p>
+        </div>
+        <div class="p-4 p-md-5">
+          {% if selected_taman.image_url %}
+          <img src="{{ selected_taman.image_url }}" alt="{{ selected_taman.nama }}" class="img-fluid rounded mb-4" />
+          {% endif %}
+          {% if selected_taman.deskripsi %}
+          <div class="p-3 rounded border bg-light mb-4">{{ selected_taman.deskripsi }}</div>
+          {% endif %}
+          <div class="row g-4">
+            <div class="col-12 col-md-6">
+              <h5 class="pb-2 border-bottom">Maklumat Terperinci</h5>
+              <p class="mb-2"><span class="text-secondary">Lokasi:</span><br><strong>{{ selected_taman.lokasi }}</strong></p>
+              <p class="mb-2"><span class="text-secondary">PBT:</span><br><strong>{{ selected_taman.pbt|default:'Tidak dinyatakan' }}</strong></p>
+              <p class="mb-0"><span class="text-secondary">ID:</span> <strong class="font-monospace">TMN-{{ selected_taman.id }}</strong></p>
+            </div>
+            <div class="col-12 col-md-6">
+              <h5 class="pb-2 border-bottom">Status Kemudahan</h5>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Tandas{% if selected_taman.tandas %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+                <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Playground{% if selected_taman.playground %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+                <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Parking{% if selected_taman.parking %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+                <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Surau{% if selected_taman.surau %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="card-soft bg-white p-4">
+        <p class="m-0">Profil taman tidak dijumpai. <a href="/?tab=senarai">Kembali ke senarai</a>.</p>
+      </div>
+      {% endif %}
+      {% endif %}
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('.js-progress-bar').forEach(function (el) {
+    var width = Number(el.dataset.width || 0);
+    var safeWidth = Math.max(0, Math.min(100, width));
+    el.style.width = safeWidth + '%';
+  });
+</script>
+{% endblock %}

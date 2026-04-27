@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Profil Taman - {{ taman.nama }}{% endblock %}
+
+{% block body %}
+<div class="container py-4 py-md-5" style="max-width: 980px;">
+  <a href="/" class="btn btn-link ps-0 text-success">&larr; Kembali ke Senarai</a>
+
+  <div class="card-soft bg-white overflow-hidden">
+    <div class="p-4 p-md-5 text-white hero-head position-relative overflow-hidden">
+      <i class="bi bi-tree-fill position-absolute" style="right: 1rem; bottom: -1.5rem; font-size: 8rem; opacity: .12;"></i>
+      <span class="badge rounded-pill text-bg-light bg-opacity-25 mb-3">{{ taman.jenis }}</span>
+      <h1 class="m-0 fw-bold">{{ taman.nama }}</h1>
+      <p class="mb-0 mt-2">{{ taman.daerah }} | {{ taman.keluasan|default:'N/A' }} Ekar</p>
+    </div>
+
+    <div class="p-4 p-md-5">
+      {% if taman.image_url %}
+      <img src="{{ taman.image_url }}" alt="{{ taman.nama }}" class="img-fluid rounded mb-4" />
+      {% endif %}
+
+      {% if taman.deskripsi %}
+      <div class="p-3 rounded border bg-light mb-4">{{ taman.deskripsi }}</div>
+      {% endif %}
+
+      <div class="row g-4">
+        <div class="col-12 col-md-6">
+          <h5 class="pb-2 border-bottom">Maklumat Terperinci</h5>
+          <p class="mb-2"><span class="text-secondary">Lokasi:</span><br><strong>{{ taman.lokasi }}</strong></p>
+          <p class="mb-2"><span class="text-secondary">PBT:</span><br><strong>{{ taman.pbt|default:'Tidak dinyatakan' }}</strong></p>
+          <p class="mb-0"><span class="text-secondary">ID:</span> <strong class="font-monospace">TMN-{{ taman.id }}</strong></p>
+        </div>
+        <div class="col-12 col-md-6">
+          <h5 class="pb-2 border-bottom">Status Kemudahan</h5>
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Tandas{% if taman.tandas %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+            <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Playground{% if taman.playground %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+            <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Parking{% if taman.parking %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+            <li class="list-group-item d-flex justify-content-between bg-transparent px-0">Surau{% if taman.surau %}<span class="text-success"><i class="bi bi-check-square"></i></span>{% else %}<span class="text-danger"><i class="bi bi-x-square"></i></span>{% endif %}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

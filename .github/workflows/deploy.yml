@@ -1,0 +1,90 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy-to-heroku:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Deploy to Heroku
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+      run: |
+        git remote add heroku https://git.heroku.com/$HEROKU_APP_NAME.git
+        git push heroku main --force
+        sleep 10
+    
+    - name: Run migrations
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+      run: |
+        curl -n -X POST https://api.heroku.com/apps/$HEROKU_APP_NAME/dynos \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/vnd.heroku+json; version=3" \
+          -H "Authorization: Bearer $HEROKU_API_KEY" \
+          -d '{"command":"python manage.py migrate","type":"one_off"}'
+
+  # Uncomment below for manual VPS deployment
+  # deploy-to-vps:
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   
+  #   - name: Deploy to VPS
+  #     env:
+  #       VPS_HOST: ${{ secrets.VPS_HOST }}
+  #       VPS_USER: ${{ secrets.VPS_USER }}
+  #       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+  #     run: |
+  #       mkdir -p ~/.ssh
+  #       echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+  #       chmod 600 ~/.ssh/deploy_key
+  #       ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST << 'EOF'
+  #       cd /var/www/etaman
+  #       git pull origin main
+  #       source venv/bin/activate
+  #       pip install -r django_backend/requirements.txt
+  #       cd django_backend
+  #       python manage.py migrate
+  #       python manage.py collectstatic --noinput
+  #       systemctl restart etaman
+  #       EOF
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [deploy-to-heroku]
+    if: always()
+    
+    steps:
+    - name: Notify on Slack
+      if: always()
+      uses: slackapi/slack-github-action@v1
+      with:
+        payload: |
+          {
+            "text": "eTaman Deployment ${{ needs.deploy-to-heroku.result == 'success' && '✅ Success' || '❌ Failed' }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*eTaman Deployment*\nStatus: ${{ needs.deploy-to-heroku.result == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
