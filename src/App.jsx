@@ -3,7 +3,7 @@ import {
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
   XSquare, Download, Car, Tent, Home, Baby,
-  Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle
+  Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -162,6 +162,25 @@ const initialData = [
 
 const SENARAI_DAERAH = ['Johor Bahru', 'Kluang', 'Batu Pahat', 'Muar', 'Kulai', 'Kota Tinggi', 'Segamat', 'Pontian', 'Mersing', 'Tangkak'];
 const JENIS_TAMAN = ['Taman Tempatan', 'Taman Bandaran', 'Lot Permainan', 'Padang Permainan', 'Taman Kejiranan', 'Taman Permainan'];
+
+const SENARAI_PBT = [
+  { code: 'MBJB', nama: 'Majlis Bandaraya Johor Bahru', fullName: 'Majlis Bandaraya Johor Bahru (MBJB)' },
+  { code: 'MBIP', nama: 'Majlis Bandaraya Iskandar Puteri', fullName: 'Majlis Bandaraya Iskandar Puteri (MBIP)' },
+  { code: 'MBPG', nama: 'Majlis Bandaraya Pasir Gudang', fullName: 'Majlis Bandaraya Pasir Gudang (MBPG)' },
+  { code: 'MPBP', nama: 'Majlis Perbandaran Batu Pahat', fullName: 'Majlis Perbandaran Batu Pahat (MPBP)' },
+  { code: 'MPK', nama: 'Majlis Perbandaran Kluang', fullName: 'Majlis Perbandaran Kluang (MPK)' },
+  { code: 'MPM', nama: 'Majlis Perbandaran Muar', fullName: 'Majlis Perbandaran Muar (MPM)' },
+  { code: 'MPKulai', nama: 'Majlis Perbandaran Kulai', fullName: 'Majlis Perbandaran Kulai (MPKulai)' },
+  { code: 'MPS', nama: 'Majlis Perbandaran Segamat', fullName: 'Majlis Perbandaran Segamat (MPS)' },
+  { code: 'MPPengerang', nama: 'Majlis Perbandaran Pengerang', fullName: 'Majlis Perbandaran Pengerang (MPPengerang)' },
+  { code: 'MPPn', nama: 'Majlis Perbandaran Pontian', fullName: 'Majlis Perbandaran Pontian (MPPn)' },
+  { code: 'MDKT', nama: 'Majlis Daerah Kota Tinggi', fullName: 'Majlis Daerah Kota Tinggi (MDKT)' },
+  { code: 'MDL', nama: 'Majlis Daerah Labis', fullName: 'Majlis Daerah Labis (MDL)' },
+  { code: 'MDM', nama: 'Majlis Daerah Mersing', fullName: 'Majlis Daerah Mersing (MDM)' },
+  { code: 'MDSR', nama: 'Majlis Daerah Simpang Renggam', fullName: 'Majlis Daerah Simpang Renggam (MDSR)' },
+  { code: 'MDT', nama: 'Majlis Daerah Tangkak', fullName: 'Majlis Daerah Tangkak (MDT)' },
+  { code: 'MDYP', nama: 'Majlis Daerah Yong Peng', fullName: 'Majlis Daerah Yong Peng (MDYP)' }
+];
 
 export default function SistemPengurusanTaman() {
   const [tamanList, setTamanList] = useState([]);
@@ -1713,49 +1732,57 @@ function ProfilTaman({ taman, onBack }) {
 // KOMPONEN: LAPORAN & STATISTIK (MODUL 3 + AI)
 // ==========================================
 function LaporanStatistik({ tamanList }) {
+  const [selectedPBT, setSelectedPBT] = useState(null);
   const [aiInsights, setAiInsights] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Filter taman berdasarkan PBT yang dipilih
+  const filteredTaman = useMemo(() => {
+    if (!selectedPBT) return [];
+    return tamanList.filter(t => t.PBT === selectedPBT.fullName || t.PBT === selectedPBT.code);
+  }, [tamanList, selectedPBT]);
+
   // Pengiraan Statistik
-  const jumlahTaman = tamanList.length;
-  const jumlahKeluasan = tamanList.reduce((acc, curr) => acc + (parseFloat(curr.keluasan) || 0), 0);
+  const jumlahTaman = filteredTaman.length;
+  const jumlahKeluasan = filteredTaman.reduce((acc, curr) => acc + (parseFloat(curr.keluasan) || 0), 0);
   
   // Kiraan mengikut Daerah
   const taburanDaerah = useMemo(() => {
     const counts = {};
-    tamanList.forEach(t => {
+    filteredTaman.forEach(t => {
       counts[t.daerah] = (counts[t.daerah] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [tamanList]);
+  }, [filteredTaman]);
 
   // Kiraan mengikut Jenis
   const taburanJenis = useMemo(() => {
     const counts = {};
-    tamanList.forEach(t => {
+    filteredTaman.forEach(t => {
       counts[t.jenis] = (counts[t.jenis] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [tamanList]);
+  }, [filteredTaman]);
 
   const generateAIInsights = async () => {
     setIsAnalyzing(true);
     try {
       // Sediakan ringkasan data untuk AI
       const summaryData = {
+        pbt: selectedPBT.fullName,
         jumlahTaman,
         jumlahKeluasan,
         taburanIkutDaerah: Object.fromEntries(taburanDaerah),
         taburanIkutJenis: Object.fromEntries(taburanJenis),
-        senaraiTaman: tamanList.map(t => ({
+        senaraiTaman: filteredTaman.map(t => ({
           nama: t.nama, daerah: t.daerah, tandas: t.kemudahan.tandas, surau: t.kemudahan.surau
         }))
       };
 
-      const prompt = `Sebagai seorang perunding pakar perancangan bandar dan pengurusan taman, sila analisis data taman berikut: 
+      const prompt = `Sebagai seorang perunding pakar perancangan bandar dan pengurusan taman, sila analisis data taman untuk ${selectedPBT.fullName} berikut: 
       ${JSON.stringify(summaryData)}
       
-      Berikan 3 pemerhatian utama atau cadangan strategik yang padat dalam Bahasa Melayu untuk pihak pengurusan bagi meningkatkan kualiti taman-taman ini. 
+      Berikan 3 pemerhatian utama atau cadangan strategik yang padat dalam Bahasa Melayu untuk pihak pengurusan ${selectedPBT.fullName} bagi meningkatkan kualiti taman-taman ini. 
       Formatkan jawapan anda dalam bentuk "bullet points" (*). Jangan berikan pengenalan yang panjang, terus kepada isi penting.`;
 
       const insights = await callGeminiAPI(prompt);
@@ -1767,15 +1794,82 @@ function LaporanStatistik({ tamanList }) {
     }
   };
 
+  // Jika belum ada PBT dipilih, tampilkan skrin pilihan PBT
+  if (!selectedPBT) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">Laporan & Analitik Data</h2>
+          <p className="text-gray-600">Sila pilih sebuah Pihak Berkuasa Tempatan (PBT) untuk melihat analisis terperinci</p>
+        </div>
+
+        {/* Grid Senarai PBT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {SENARAI_PBT.map((pbt) => {
+            const countTaman = tamanList.filter(t => t.PBT === pbt.fullName || t.PBT === pbt.code).length;
+            return (
+              <button
+                key={pbt.code}
+                onClick={() => setSelectedPBT(pbt)}
+                className={`p-5 rounded-xl border-2 transition-all duration-200 text-left hover:shadow-lg transform hover:scale-105 ${
+                  countTaman > 0 
+                    ? 'bg-white border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer' 
+                    : 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
+                }`}
+                disabled={countTaman === 0}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-800 text-sm">{pbt.nama}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{pbt.code}</p>
+                  </div>
+                  <div className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                    {countTaman}
+                  </div>
+                </div>
+                {countTaman > 0 && (
+                  <div className="text-xs text-emerald-600 font-medium">
+                    Klik untuk lihat laporan
+                  </div>
+                )}
+                {countTaman === 0 && (
+                  <div className="text-xs text-gray-400">
+                    Tiada data
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Tampilkan dashboard untuk PBT yang dipilih
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2 inline-block">Laporan & Analitik Data</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800">{selectedPBT.fullName}</h2>
+          <p className="text-gray-600 mt-1">Laporan & Analitik Data</p>
+        </div>
+        <button
+          onClick={() => {
+            setSelectedPBT(null);
+            setAiInsights("");
+          }}
+          className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Kembali ke Senarai PBT</span>
+        </button>
+      </div>
       
       {/* Kad Ringkasan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-emerald-500 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Keseluruhan Taman</p>
+            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Taman</p>
             <h3 className="text-3xl font-bold text-gray-800">{jumlahTaman}</h3>
           </div>
           <Trees className="w-12 h-12 text-emerald-100" />
@@ -1796,8 +1890,6 @@ function LaporanStatistik({ tamanList }) {
           <MapPin className="w-12 h-12 text-amber-100" />
         </div>
       </div>
-
-      
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Carta Bar Mudah: Taburan Mengikut Daerah */}
