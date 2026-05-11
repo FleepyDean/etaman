@@ -3,7 +3,10 @@ import {
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
   XSquare, Download, Car, Tent, Home, Baby,
-  Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft
+  Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft,
+  Building2, Landmark, Check, XIcon, Toilet, ParkingSquare, PlayCircle, HeartHandshake,
+  TreePalm,
+  TreePineIcon
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -202,6 +205,10 @@ export default function SistemPengurusanTaman() {
   const [isImporting, setIsImporting] = useState(false);
   const [importingTaman, setImportingTaman] = useState([]);
 
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+
   // Fetch data from Django API
   useEffect(() => {
     fetchTamanList();
@@ -257,6 +264,30 @@ export default function SistemPengurusanTaman() {
 
   const handleDeleteTaman = (id) => {
     setTamanToDelete(id);
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(selectedIds.map(id =>
+        fetch(apiUrl(`/api/taman/${id}/delete/`), { method: 'DELETE' })
+      ));
+      setTamanList(tamanList.filter(t => !selectedIds.includes(t.id)));
+      setSelectedIds([]);
+      setShowBulkDeleteModal(false);
+    } catch (error) {
+      console.error('Error deleting taman:', error);
+      alert('Ralat semasa memadam data taman');
+    }
+  };
+
+  const toggleSelectAll = (filteredList) => {
+    const allIds = filteredList.map(t => t.id);
+    const allSelected = allIds.every(id => selectedIds.includes(id));
+    setSelectedIds(allSelected ? selectedIds.filter(id => !allIds.includes(id)) : [...new Set([...selectedIds, ...allIds])]);
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   const confirmDelete = async () => {
@@ -497,57 +528,63 @@ export default function SistemPengurusanTaman() {
   }, [tamanList, searchQuery, filterDaerah, filterJenis, filterKemudahan]);
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col md:flex-row font-sans text-gray-800">
+    <div className="h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-800">
       
       {/* SIDEBAR */}
-      <aside className="w-full md:w-64 md:fixed md:left-0 md:top-0 md:h-screen bg-emerald-800 text-white flex flex-col">
-        <div className="p-6 flex items-center space-x-3 bg-emerald-900">
-          <Trees className="w-8 h-8 text-emerald-400" />
-          <h1 className="text-xl font-bold tracking-wide">eTaman</h1>
+      <aside className="w-full md:w-64 md:fixed md:left-0 md:top-0 md:h-screen bg-slate-900 text-white flex flex-col border-r border-slate-800">
+        <div className="p-6 flex items-center space-x-3 bg-slate-950 border-b border-slate-800">
+          <TreePineIcon className="w-7 h-7 text-blue-400" />
+          <div>
+            <h1 className="text-lg font-semibold tracking-wide">eTaman</h1>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Sistem Pengurusan</p>
+          </div>
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <button 
             onClick={() => setActiveTab('senarai')}
-            className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${activeTab === 'senarai' ? 'bg-emerald-700' : 'hover:bg-emerald-700/50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${activeTab === 'senarai' ? 'bg-blue-900/30 text-blue-100 border-l-2 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
           >
-            <List className="w-5 h-5" /> <span>Senarai Taman</span>
+            <List className="w-4 h-4" /> <span>Senarai Taman</span>
           </button>
           <button 
             onClick={() => setActiveTab('laporan')}
-            className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${activeTab === 'laporan' ? 'bg-emerald-700' : 'hover:bg-emerald-700/50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${activeTab === 'laporan' ? 'bg-blue-900/30 text-blue-100 border-l-2 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
           >
-            <BarChart3 className="w-5 h-5" /> <span>Laporan</span>
+            <BarChart3 className="w-4 h-4" /> <span>Laporan & Analitik</span>
           </button>
         </nav>
-        <div className="p-4 text-xs text-emerald-300/70 text-center">
-          © 2026 Pingu
+        <div className="p-4 text-[10px] text-slate-500 text-center border-t border-slate-800">
+          HAK CIPTA © 2026<br/>JABATAN PERANCANGAN BANDAR
         </div>
       </aside>
 
       {/* KANDUNGAN UTAMA */}
-      <main className="flex-1 md:ml-64 h-screen md:h-screen p-6 md:p-8 overflow-y-auto">
+      <main className="flex-1 md:ml-64 h-screen md:h-screen p-6 md:p-10 overflow-y-auto">
         
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
-              <p className="text-gray-600">Memuatkan data...</p>
+              <Loader2 className="w-6 h-6 text-blue-700 animate-spin mx-auto mb-3" />
+              <p className="text-slate-500 text-sm uppercase tracking-wide">Memuatkan data</p>
             </div>
           </div>
         )}
 
         {/* MODUL 1 & 3: SENARAI DAN CARIAN */}
         {!loading && activeTab === 'senarai' && !isImporting && (
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2">Senarai Taman</h2>
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={() => { setEditingId(null); setViewingTaman(null); setActiveTab('borang'); }} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition">
-                  <Plus className="w-4 h-4" /> <span>Tambah Taman</span>
+          <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-200">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 tracking-tight">SENARAI TAMAN</h2>
+                <p className="text-sm text-slate-500 mt-1">Pengurusan rekod taman rekreasi dan awam</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { setEditingId(null); setViewingTaman(null); setActiveTab('borang'); }} className="flex items-center space-x-2 bg-blue-700 text-white px-4 py-2 text-sm font-medium hover:bg-blue-800 transition-colors">
+                  <Plus className="w-4 h-4" /> <span>Tambah Rekod</span>
                 </button>
-                <button onClick={() => document.getElementById('import-file-input').click()} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                  <Upload className="w-4 h-4" /> <span>Import Taman</span>
+                <button onClick={() => document.getElementById('import-file-input').click()} className="flex items-center space-x-2 bg-slate-700 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 transition-colors">
+                  <Upload className="w-4 h-4" /> <span>Import</span>
                 </button>
                 <input 
                   id="import-file-input" 
@@ -556,29 +593,29 @@ export default function SistemPengurusanTaman() {
                   onChange={handleImportFile}
                   className="hidden"
                 />
-                <button onClick={handleExportCSV} className="flex items-center space-x-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition">
-                  <Download className="w-4 h-4" /> <span>Eksport CSV</span>
+                <button onClick={handleExportCSV} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
+                  <Download className="w-4 h-4" /> <span>Eksport</span>
                 </button>
               </div>
             </div>
 
             {/* Ruangan Tapisan (Filter) */}
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4">
+            <div className="bg-white p-5 border border-slate-200 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                  <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
                   <input 
                     type="text" 
                     placeholder="Cari nama atau lokasi..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <select 
                   value={filterDaerah} 
                   onChange={(e) => setFilterDaerah(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 >
                   <option value="">Semua Daerah</option>
                   {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
@@ -586,7 +623,7 @@ export default function SistemPengurusanTaman() {
                 <select 
                   value={filterJenis} 
                   onChange={(e) => setFilterJenis(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 >
                   <option value="">Semua Jenis Taman</option>
                   {JENIS_TAMAN.map(j => <option key={j} value={j}>{j}</option>)}
@@ -594,17 +631,17 @@ export default function SistemPengurusanTaman() {
               </div>
 
               {/* Tapisan Kemudahan */}
-              <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
-                <span className="text-sm font-semibold text-gray-500 flex items-center"><Filter className="w-4 h-4 mr-1"/> Keperluan Kemudahan:</span>
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center"><Filter className="w-3 h-3 mr-1"/> Kemudahan:</span>
                 {Object.keys(filterKemudahan).map(key => (
-                  <label key={key} className="flex items-center space-x-2 cursor-pointer text-sm bg-gray-50 px-3 py-1.5 rounded-full border hover:bg-emerald-50 transition">
+                  <label key={key} className="flex items-center space-x-2 cursor-pointer text-sm bg-slate-50 px-3 py-1.5 border border-slate-200 hover:bg-slate-100 transition">
                     <input 
                       type="checkbox" 
                       checked={filterKemudahan[key]}
                       onChange={(e) => setFilterKemudahan({...filterKemudahan, [key]: e.target.checked})}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                      className="rounded-sm text-blue-700 focus:ring-blue-500"
                     />
-                    <span className="capitalize">{key}</span>
+                    <span className="capitalize text-slate-600">{key}</span>
                   </label>
                 ))}
                 {(searchQuery || filterDaerah || filterJenis || Object.values(filterKemudahan).some(Boolean)) && (
@@ -613,64 +650,105 @@ export default function SistemPengurusanTaman() {
                       setSearchQuery(''); setFilterDaerah(''); setFilterJenis('');
                       setFilterKemudahan({tandas: false, playground: false, parking: false, surau: false});
                     }}
-                    className="text-xs text-red-500 hover:underline ml-auto"
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium ml-auto"
                   >
-                    Reset Filter
+                    Reset Tapisan
                   </button>
                 )}
               </div>
             </div>
 
+            {/* Bulk Action Bar */}
+            {selectedIds.length > 0 && (
+              <div className="flex items-center justify-between bg-blue-700 text-white px-5 py-3">
+                <span className="text-sm font-medium">{selectedIds.length} rekod dipilih</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedIds([])}
+                    className="text-sm text-blue-200 hover:text-white transition-colors"
+                  >
+                    Nyahpilih
+                  </button>
+                  <button
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-sm font-medium transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Padam Dipilih
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Jadual Senarai */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b">
-                      <th className="p-4 font-medium">Nama Taman</th>
-                      <th className="p-4 font-medium">Daerah</th>
-                      <th className="p-4 font-medium">Jenis</th>
-                      <th className="p-4 font-medium text-center">Kemudahan Utama</th>
-                      <th className="p-4 font-medium text-right">Tindakan</th>
+                    <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                      <th className="p-4 w-10">
+                        <input
+                          type="checkbox"
+                          checked={filteredTaman.length > 0 && filteredTaman.every(t => selectedIds.includes(t.id))}
+                          onChange={() => toggleSelectAll(filteredTaman)}
+                          className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                          title="Pilih Semua"
+                        />
+                      </th>
+                      <th className="p-4 font-semibold">Nama Taman</th>
+                      <th className="p-4 font-semibold">Daerah</th>
+                      <th className="p-4 font-semibold">Jenis</th>
+                      <th className="p-4 font-semibold text-center">Kemudahan</th>
+                      <th className="p-4 font-semibold text-right">Tindakan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredTaman.length > 0 ? filteredTaman.map((taman) => (
-                      <tr key={taman.id} className="hover:bg-emerald-50/30 transition-colors">
+                      <tr key={taman.id} className={`hover:bg-slate-50 transition-colors ${selectedIds.includes(taman.id) ? 'bg-blue-50' : ''}`}>
                         <td className="p-4">
-                          <div className="font-semibold text-gray-800">{taman.nama}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{taman.lokasi}</div>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(taman.id)}
+                            onChange={() => toggleSelectOne(taman.id)}
+                            className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                          />
                         </td>
-                        <td className="p-4 text-gray-600">{taman.daerah}</td>
-                        <td className="p-4 text-gray-600">
-                          <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-xs border border-blue-100">
+                        <td className="p-4">
+                          <div className="font-medium text-slate-900">{taman.nama}</div>
+                          <div className="text-sm text-slate-500 truncate max-w-xs">{taman.lokasi}</div>
+                        </td>
+                        <td className="p-4 text-slate-600 text-sm">{taman.daerah}</td>
+                        <td className="p-4">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-1 text-xs font-medium border border-slate-200">
                             {taman.jenis}
                           </span>
                         </td>
                         <td className="p-4 text-center">
-                          <div className="flex justify-center gap-1 text-gray-400">
-                            {taman.kemudahan.tandas && <span title="Tandas" className="text-emerald-600">🚽</span>}
-                            {taman.kemudahan.playground && <span title="Playground" className="text-emerald-600">🛝</span>}
-                            {taman.kemudahan.parking && <span title="Parking" className="text-emerald-600">🅿️</span>}
-                            {taman.kemudahan.surau && <span title="Surau" className="text-emerald-600">🕌</span>}
+                          <div className="flex justify-center gap-2">
+                            {taman.kemudahan.tandas && <Toilet className="w-4 h-4 text-blue-600" title="Tandas" />}
+                            {taman.kemudahan.playground && <PlayCircle className="w-4 h-4 text-blue-600" title="Taman Permainan" />}
+                            {taman.kemudahan.parking && <ParkingSquare className="w-4 h-4 text-blue-600" title="Tempat Letak Kereta" />}
+                            {taman.kemudahan.surau && <Building2 className="w-4 h-4 text-blue-600" title="Surau" />}
                           </div>
                         </td>
-                        <td className="p-4 text-right space-x-2">
-                          <button onClick={() => handleViewProfil(taman)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Lihat Profil">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleEditTaman(taman)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Kemaskini">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeleteTaman(taman.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Padam">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <td className="p-4 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={() => handleViewProfil(taman)} className="p-2 text-blue-700 hover:bg-blue-50 transition" title="Lihat Profil">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleEditTaman(taman)} className="p-2 text-slate-600 hover:bg-slate-100 transition" title="Kemaskini">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteTaman(taman.id)} className="p-2 text-red-600 hover:bg-red-50 transition" title="Padam">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="5" className="p-8 text-center text-gray-500">
-                          Tiada taman dijumpai berdasarkan carian/tapisan anda.
+                        <td colSpan="6" className="p-8 text-center text-slate-500 text-sm">
+                          Tiada rekod dijumpai.
                         </td>
                       </tr>
                     )}
@@ -715,29 +793,58 @@ export default function SistemPengurusanTaman() {
 
       </main>
 
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white p-6 shadow-xl max-w-sm w-full mx-4">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-slate-900 mb-2">Sahkan Padaman Banyak</h3>
+            <p className="text-center text-slate-600 text-sm mb-6">
+              Anda akan memadam <span className="font-semibold text-red-600">{selectedIds.length} rekod taman</span>. Tindakan ini tidak boleh dipulihkan.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="px-5 py-2 text-slate-700 font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="px-5 py-2 text-white font-medium bg-red-600 hover:bg-red-700 transition-colors"
+              >
+                Padam {selectedIds.length} Rekod
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tetingkap Pengesahan Padam (Delete Modal) */}
       {tamanToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-center w-14 h-14 mx-auto mb-4 bg-red-100 rounded-full">
-              <Trash2 className="w-7 h-7 text-red-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white p-6 shadow-xl max-w-sm w-full mx-4">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100">
+              <Trash2 className="w-6 h-6 text-red-600" />
             </div>
-            <h3 className="text-xl font-bold text-center text-gray-800 mb-2">Sahkan Padaman</h3>
-            <p className="text-center text-gray-600 mb-6">
+            <h3 className="text-lg font-semibold text-center text-slate-900 mb-2">Sahkan Padaman</h3>
+            <p className="text-center text-slate-600 text-sm mb-6">
               Adakah anda pasti untuk memadam rekod taman ini? Tindakan ini tidak boleh dipulihkan.
             </p>
             <div className="flex justify-center space-x-3">
               <button 
                 onClick={() => setTamanToDelete(null)}
-                className="px-5 py-2.5 text-gray-700 font-medium bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+                className="px-5 py-2 text-slate-700 font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
               >
                 Batal
               </button>
               <button 
                 onClick={confirmDelete}
-                className="px-5 py-2.5 text-white font-medium bg-red-600 rounded-xl hover:bg-red-700 transition shadow-md hover:shadow-lg"
+                className="px-5 py-2 text-white font-medium bg-red-600 hover:bg-red-700 transition-colors"
               >
-                Ya, Padam
+                Padam
               </button>
             </div>
           </div>
@@ -949,118 +1056,122 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-emerald-500 pb-2">
-          {tamanSediaAda ? 'Kemaskini Maklumat Taman' : 'Daftar Taman Baru'}
-        </h2>
-        <button onClick={onCancel} className="text-gray-500 hover:text-gray-800">Kembali</button>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+            {tamanSediaAda ? 'KEMASKINI REKOD TAMAN' : 'DAFTAR TAMAN BARU'}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            {tamanSediaAda ? 'Pinda maklumat sedia ada' : 'Isi maklumat taman baharu'}
+          </p>
+        </div>
+        <button onClick={onCancel} className="text-slate-500 hover:text-slate-800 text-sm font-medium">Kembali</button>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100 space-y-8">
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 border border-slate-200 space-y-8">
         {/* Seksyen Maklumat Asas */}
         <div>
-          <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center"><MapPin className="w-5 h-5 mr-2"/> Maklumat Asas</h3>
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+            <MapPin className="w-4 h-4 mr-2 text-blue-600"/> Maklumat Asas
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Nama Taman <span className="text-red-500">*</span></label>
-              <input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: Taman Botani" />
+              <label className="text-sm font-medium text-slate-700">Nama Taman <span className="text-red-500">*</span></label>
+              <input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: Taman Botani" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Lokasi / Alamat Lengkap <span className="text-red-500">*</span></label>
-              <input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: Jalan Tasek Utara" />
+              <label className="text-sm font-medium text-slate-700">Lokasi / Alamat Lengkap <span className="text-red-500">*</span></label>
+              <input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: Jalan Tasek Utara" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Daerah <span className="text-red-500">*</span></label>
-              <select required name="daerah" value={formData.daerah} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+              <label className="text-sm font-medium text-slate-700">Daerah <span className="text-red-500">*</span></label>
+              <select required name="daerah" value={formData.daerah} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 bg-white">
                 <option value="" disabled>Pilih Daerah</option>
                 {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Keluasan (Ekar)</label>
-              <input type="number" step="0.01" name="keluasan" value={formData.keluasan} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: 15.5" />
+              <label className="text-sm font-medium text-slate-700">Keluasan (Ekar)</label>
+              <input type="number" step="0.01" name="keluasan" value={formData.keluasan} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: 15.5" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Jenis Taman <span className="text-red-500">*</span></label>
-              <select required name="jenis" value={formData.jenis} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+              <label className="text-sm font-medium text-slate-700">Jenis Taman <span className="text-red-500">*</span></label>
+              <select required name="jenis" value={formData.jenis} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 bg-white">
                 <option value="" disabled>Pilih Taman</option>
                 {JENIS_TAMAN.map(j => <option key={j} value={j}>{j}</option>)}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">PBT</label>
-              <input type="text" name="PBT" value={formData.PBT} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Cth: MBIP, MBJB" />
+              <label className="text-sm font-medium text-slate-700">PBT</label>
+              <input type="text" name="PBT" value={formData.PBT} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: MBIP, MBJB" />
             </div>
           </div>
         </div>
 
         {/* Seksyen Kemudahan (Modul 2) */}
-        <div className="pt-6 border-t border-gray-100">
-          <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center"><Tent className="w-5 h-5 mr-2"/> Kemudahan Sedia Ada</h3>
+        <div className="pt-6 border-t border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+            <Tent className="w-4 h-4 mr-2 text-blue-600"/> Kemudahan Sedia Ada
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.tandas ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
-              <Baby className="w-8 h-8 mb-2 opacity-80" />
+            <label className={`flex flex-col items-center justify-center p-4 border cursor-pointer transition-colors ${formData.kemudahan.tandas ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-blue-300 bg-white'}`}>
+              <Toilet className="w-6 h-6 mb-2" />
               <div className="flex items-center space-x-2">
-                <input type="checkbox" name="tandas" checked={formData.kemudahan.tandas} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
-                <span className="font-medium">Tandas</span>
+                <input type="checkbox" name="tandas" checked={formData.kemudahan.tandas} onChange={handleCheckbox} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                <span className="text-sm font-medium">Tandas</span>
               </div>
             </label>
-            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.playground ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
-              <Trees className="w-8 h-8 mb-2 opacity-80" />
+            <label className={`flex flex-col items-center justify-center p-4 border cursor-pointer transition-colors ${formData.kemudahan.playground ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-blue-300 bg-white'}`}>
+              <PlayCircle className="w-6 h-6 mb-2" />
               <div className="flex items-center space-x-2">
-                <input type="checkbox" name="playground" checked={formData.kemudahan.playground} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
-                <span className="font-medium">Taman Permainan</span>
+                <input type="checkbox" name="playground" checked={formData.kemudahan.playground} onChange={handleCheckbox} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                <span className="text-sm font-medium">Taman Permainan</span>
               </div>
             </label>
-            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.parking ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
-              <Car className="w-8 h-8 mb-2 opacity-80" />
+            <label className={`flex flex-col items-center justify-center p-4 border cursor-pointer transition-colors ${formData.kemudahan.parking ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-blue-300 bg-white'}`}>
+              <ParkingSquare className="w-6 h-6 mb-2" />
               <div className="flex items-center space-x-2">
-                <input type="checkbox" name="parking" checked={formData.kemudahan.parking} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
-                <span className="font-medium">Tempat Letak Kereta</span>
+                <input type="checkbox" name="parking" checked={formData.kemudahan.parking} onChange={handleCheckbox} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                <span className="text-sm font-medium">Tempat Letak Kereta</span>
               </div>
             </label>
-            <label className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.kemudahan.surau ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 hover:border-emerald-300'}`}>
-              <Home className="w-8 h-8 mb-2 opacity-80" />
+            <label className={`flex flex-col items-center justify-center p-4 border cursor-pointer transition-colors ${formData.kemudahan.surau ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-blue-300 bg-white'}`}>
+              <Building2 className="w-6 h-6 mb-2" />
               <div className="flex items-center space-x-2">
-                <input type="checkbox" name="surau" checked={formData.kemudahan.surau} onChange={handleCheckbox} className="w-4 h-4 text-emerald-600 focus:ring-emerald-500" />
-                <span className="font-medium">Surau / Tempat Ibadat</span>
+                <input type="checkbox" name="surau" checked={formData.kemudahan.surau} onChange={handleCheckbox} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                <span className="text-sm font-medium">Surau / Tempat Ibadat</span>
               </div>
             </label>
           </div>
         </div>
 
         {/* Seksyen Deskripsi Taman dengan AI */}
-        <div className="pt-6 border-t border-gray-100">
+        <div className="pt-6 border-t border-slate-200">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-emerald-800 flex items-center"><AlignLeft className="w-5 h-5 mr-2"/> Deskripsi Profil Taman</h3>
-            {/* <button 
-              type="button" 
-              onClick={generateAIDescription}
-              disabled={isGenerating}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition text-sm font-medium disabled:opacity-50"
-            >
-              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>✨ Jana Automatik (AI)</span>
-            </button> */}
+            <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider flex items-center">
+              <AlignLeft className="w-4 h-4 mr-2 text-blue-600"/> Deskripsi Profil Taman
+            </h3>
           </div>
           <textarea 
             name="deskripsi" 
             value={formData.deskripsi} 
             onChange={handleChange} 
             rows="4" 
-            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-gray-700 bg-gray-50"
+            className="w-full px-4 py-3 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-700 bg-slate-50"
             placeholder="Taip maklumat taman..."
           />
         </div>
 
         {/* Seksyen Muat Naik Gambar */}
-        <div className="pt-6 border-t border-gray-100">
-          <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center"><Download className="w-5 h-5 mr-2"/> Muat Naik Gambar Taman</h3>
+        <div className="pt-6 border-t border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+            <Download className="w-4 h-4 mr-2 text-blue-600"/> Muat Naik Gambar Taman
+          </h3>
           
           {/* File Upload Input */}
           <div className="mb-6">
-            <label className="block border-2 border-dashed border-emerald-300 rounded-xl p-8 text-center cursor-pointer hover:bg-emerald-50 transition">
+            <label className="block border-2 border-dashed border-slate-300 p-8 text-center cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-colors">
               <input 
                 type="file" 
                 multiple 
@@ -1069,9 +1180,9 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
                 className="hidden"
               />
               <div className="space-y-2">
-                <Download className="w-8 h-8 text-emerald-600 mx-auto" />
-                <p className="text-emerald-700 font-medium">Klik untuk memilih gambar atau seret gambar ke sini</p>
-                <p className="text-sm text-gray-500">PNG, JPG, GIF sehingga 5MB setiap satu</p>
+                <Upload className="w-8 h-8 text-blue-600 mx-auto" />
+                <p className="text-blue-700 font-medium text-sm">Klik untuk memilih gambar atau seret gambar ke sini</p>
+                <p className="text-xs text-slate-500">PNG, JPG, GIF sehingga 5MB setiap satu</p>
               </div>
             </label>
           </div>
@@ -1079,15 +1190,15 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
           {/* Preview Gambar Baru */}
           {previewUrls.length > 0 && (
             <div className="mb-6">
-              <h4 className="font-medium text-gray-700 mb-3">Gambar Baharu Untuk Muat Naik ({previewUrls.length})</h4>
+              <h4 className="text-sm font-medium text-slate-700 mb-3">Gambar Baharu ({previewUrls.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {previewUrls.map((url, index) => (
                   <div key={index} className="relative group">
-                    <img src={url} alt={`Preview ${index}`} className="w-full h-32 object-cover rounded-lg border border-gray-200" />
+                    <img src={url} alt={`Preview ${index}`} className="w-full h-32 object-cover border border-slate-200" />
                     <button
                       type="button"
                       onClick={() => removeFile(index)}
-                      className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-red-600 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1100,20 +1211,20 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
           {/* Gambar Sedia Ada */}
           {uploadedImages.length > 0 && (
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Gambar Sedia Ada ({uploadedImages.length})</h4>
+              <h4 className="text-sm font-medium text-slate-700 mb-3">Gambar Sedia Ada ({uploadedImages.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {uploadedImages.map((img) => (
                   <div key={img.id} className="relative group">
-                    <img src={img.url} alt="Taman" className="w-full h-32 object-cover rounded-lg border-2" style={{borderColor: img.is_main_cover ? '#059669' : '#d1d5db'}} />
+                    <img src={img.url} alt="Taman" className="w-full h-32 object-cover border-2" style={{borderColor: img.is_main_cover ? '#2563eb' : '#d1d5db'}} />
                     {img.is_main_cover && (
-                      <div className="absolute top-1 left-1 bg-emerald-600 text-white px-2 py-1 rounded text-xs font-medium">
-                        Utama
+                      <div className="absolute top-0 left-0 bg-blue-600/30 flex items-center justify-center">
+                        <CheckSquare className="w-8 h-8 text-white" />
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => removeUploadedImage(img.id)}
-                      className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-red-600 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1124,11 +1235,11 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
           )}
         </div>
 
-        <div className="pt-6 border-t border-gray-100 flex justify-end space-x-3">
-          <button type="button" onClick={onCancel} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+        <div className="pt-6 border-t border-slate-200 flex justify-end space-x-3">
+          <button type="button" onClick={onCancel} className="px-6 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors">
             Batal
           </button>
-          <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-md">
+          <button type="submit" className="px-6 py-2 bg-blue-700 text-white hover:bg-blue-800 transition-colors">
             {tamanSediaAda ? 'Simpan Perubahan' : 'Daftar Taman'}
           </button>
         </div>
@@ -1136,24 +1247,24 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
 
       {/* Modal Pilih Gambar Utama */}
       {showMainCoverSelection && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 animate-in zoom-in-95 duration-200">
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">Pilih Gambar Utama</h3>
-            <p className="text-gray-600 mb-6">Anda telah memilih lebih dari satu gambar. Sila pilih gambar mana yang hendak dijadikan gambar utama taman ini.</p>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white shadow-xl max-w-2xl w-full p-8">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Pilih Gambar Utama</h3>
+            <p className="text-slate-600 text-sm mb-6">Anda telah memilih lebih dari satu gambar. Sila pilih gambar mana yang hendak dijadikan gambar utama taman ini.</p>
 
             <div className="grid grid-cols-3 gap-4 mb-6 max-h-96 overflow-y-auto">
               {previewUrls.map((url, index) => (
                 <div
                   key={index}
                   onClick={() => setSelectedMainCover(index)}
-                  className={`cursor-pointer relative rounded-lg overflow-hidden transition-all ${
-                    selectedMainCover === index ? 'ring-4 ring-emerald-600 scale-105' : 'hover:scale-105'
+                  className={`cursor-pointer relative overflow-hidden border-2 transition-all ${
+                    selectedMainCover === index ? 'border-blue-600' : 'border-transparent hover:border-blue-300'
                   }`}
                 >
                   <img src={url} alt={`Pilihan ${index + 1}`} className="w-full h-24 object-cover" />
                   {selectedMainCover === index && (
-                    <div className="absolute inset-0 bg-emerald-600/50 flex items-center justify-center">
-                      <CheckSquare className="w-8 h-8 text-white" />
+                    <div className="absolute inset-0 bg-blue-600/30 flex items-center justify-center">
+                      <Check className="w-8 h-8 text-white" />
                     </div>
                   )}
                 </div>
@@ -1168,16 +1279,16 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
                   setSelectedMainCover(null);
                   delete window.pendingUploadData;
                 }}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                className="px-6 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={confirmMainCoverSelection}
-                className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-md"
+                className="px-6 py-2 bg-blue-700 text-white hover:bg-blue-800 transition-colors"
               >
-                Pilih Sebagai Utama
+                Simpan Pilihan
               </button>
             </div>
           </div>
@@ -1276,27 +1387,28 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800 border-b-4 border-blue-500 pb-2">
-          Preview Import Taman ({importingTaman.length})
-        </h2>
-        <button onClick={onCancel} className="text-gray-500 hover:text-gray-800">
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">PREVIEW IMPORT TAMAN</h2>
+          <p className="text-sm text-slate-500 mt-1">{importingTaman.length} rekod untuk diimport</p>
+        </div>
+        <button onClick={onCancel} className="text-slate-500 hover:text-slate-800">
           <X className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+      <div className="bg-blue-50 border border-blue-200 p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div>
-          <p className="text-blue-900 font-medium">Review sebelum import</p>
-          <p className="text-blue-800 text-sm">Anda boleh mengedit, memadam, atau menambah gambar untuk setiap taman sebelum mengimport. Klik butang "Kemaskini" untuk membuat perubahan.</p>
+          <p className="text-blue-900 font-medium text-sm">Review sebelum import</p>
+          <p className="text-blue-800 text-xs">Anda boleh mengedit, memadam, atau menambah gambar untuk setiap taman sebelum mengimport.</p>
         </div>
       </div>
 
       <div className="grid gap-4">
         {importingTaman.map((taman, idx) => (
-          <div key={taman.tempId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+          <div key={taman.tempId} className="bg-white border border-slate-200 overflow-hidden">
             {editingIndex === idx ? (
               // Edit Mode
               <div className="p-6 space-y-4">
@@ -1450,12 +1562,12 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-sm text-gray-500 mb-2">Kemudahan</p>
+                  <p className="text-sm text-slate-500 mb-2">Kemudahan</p>
                   <div className="flex gap-2">
-                    {taman.kemudahan.tandas && <span title="Tandas" className="text-2xl">🚽</span>}
-                    {taman.kemudahan.playground && <span title="Playground" className="text-2xl">🛝</span>}
-                    {taman.kemudahan.parking && <span title="Parking" className="text-2xl">🅿️</span>}
-                    {taman.kemudahan.surau && <span title="Surau" className="text-2xl">🕌</span>}
+                    {taman.kemudahan.tandas && <Toilet className="w-5 h-5 text-blue-600" title="Tandas" />}
+                    {taman.kemudahan.playground && <PlayCircle className="w-5 h-5 text-blue-600" title="Taman Permainan" />}
+                    {taman.kemudahan.parking && <ParkingSquare className="w-5 h-5 text-blue-600" title="Tempat Letak Kereta" />}
+                    {taman.kemudahan.surau && <Building2 className="w-5 h-5 text-blue-600" title="Surau" />}
                   </div>
                 </div>
 
@@ -1467,10 +1579,10 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
                 )}
 
                 {/* Images Section */}
-                <div className="border-t pt-4">
+                <div className="border-t border-slate-100 pt-4">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-gray-700">Gambar ({taman.images.length})</p>
-                    <label className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full cursor-pointer hover:bg-blue-200 transition">
+                    <p className="text-sm font-medium text-slate-700">Gambar ({taman.images.length})</p>
+                    <label className="text-xs bg-blue-100 text-blue-700 px-3 py-1 cursor-pointer hover:bg-blue-200 transition">
                       + Tambah Gambar
                       <input
                         type="file"
@@ -1481,28 +1593,28 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
                       />
                     </label>
                   </div>
-                  <p className="text-xs text-gray-500 mb-2">Gambar utama: {getMainCoverIndexLabel(taman)}</p>
+                  <p className="text-xs text-slate-500 mb-2">Gambar utama: {getMainCoverIndexLabel(taman)}</p>
                   {taman.images.length > 0 ? (
                     <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                       {taman.images.map((img, imgIdx) => (
                         <div
                           key={imgIdx}
-                          className={`relative group border-2 rounded-lg overflow-hidden ${
-                            taman.importMainCoverIndex === imgIdx ? 'border-emerald-500' : 'border-transparent'
+                          className={`relative group border-2 overflow-hidden ${
+                            taman.importMainCoverIndex === imgIdx ? 'border-blue-500' : 'border-transparent'
                           }`}
                         >
                           <img
                             src={URL.createObjectURL(img)}
                             alt={`Gambar ${imgIdx + 1}`}
-                            className="w-full h-16 object-cover rounded-lg"
+                            className="w-full h-16 object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => selectMainCoverForTaman(idx, imgIdx)}
-                            className={`absolute top-1 left-1 px-2 py-0.5 text-[10px] rounded-full ${
+                            className={`absolute top-1 left-1 px-2 py-0.5 text-[10px] ${
                               taman.importMainCoverIndex === imgIdx
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white/90 text-gray-700 hover:bg-emerald-50'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white/90 text-slate-700 hover:bg-blue-50'
                             }`}
                             title="Set gambar utama"
                           >
@@ -1511,7 +1623,7 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
                           <button
                             type="button"
                             onClick={() => removeImageFromTaman(idx, imgIdx)}
-                            className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                            className="absolute -top-2 -right-2 bg-red-600 text-white p-1 opacity-0 group-hover:opacity-100 transition"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -1519,7 +1631,7 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 italic">Tiada gambar. Klik "Tambah Gambar" untuk menambah.</p>
+                    <p className="text-xs text-slate-400 italic">Tiada gambar. Klik "Tambah Gambar" untuk menambah.</p>
                   )}
                 </div>
               </div>
@@ -1528,16 +1640,16 @@ function ImportTamanPreview({ importingTaman, setImportingTaman, onConfirm, onCa
         ))}
       </div>
 
-      <div className="flex justify-end gap-3 sticky bottom-0 bg-white p-6 rounded-lg shadow-lg border-t">
+      <div className="flex justify-end gap-3 sticky bottom-0 bg-white p-6 border-t border-slate-200">
         <button
           onClick={onCancel}
-          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+          className="px-6 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
         >
           Batal
         </button>
         <button
           onClick={onConfirm}
-          className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-md flex items-center gap-2"
+          className="px-6 py-2 bg-blue-700 text-white hover:bg-blue-800 transition-colors flex items-center gap-2"
         >
           <CheckSquare className="w-4 h-4" />
           Sahkan & Import ({importingTaman.length})
@@ -1568,21 +1680,20 @@ function ProfilTaman({ taman, onBack }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <button onClick={onBack} className="text-emerald-600 hover:text-emerald-800 font-medium flex items-center mb-4">
-        &larr; Kembali
+    <div className="max-w-4xl mx-auto space-y-6">
+      <button onClick={onBack} className="text-blue-700 hover:text-blue-900 font-medium flex items-center mb-4 text-sm">
+        <ArrowLeft className="w-4 h-4 mr-1"/> Kembali
       </button>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white border border-slate-200 overflow-hidden">
         {/* Header Profil */}
-        <div className="bg-gradient-to-r from-emerald-700 to-emerald-500 p-8 text-white relative overflow-hidden">
-          <Trees className="absolute -right-10 -bottom-10 w-64 h-64 opacity-10 text-emerald-900" />
+        <div className="bg-slate-900 p-8 text-white relative overflow-hidden">
           <div className="relative z-10">
-            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold tracking-wider uppercase mb-3 backdrop-blur-sm">
+            <span className="inline-block px-3 py-1 bg-blue-600 text-xs font-semibold tracking-wider uppercase mb-3">
               {taman.jenis}
             </span>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">{taman.nama}</h2>
-            <div className="flex items-center text-emerald-50 space-x-4 text-sm md:text-base">
+            <h2 className="text-2xl md:text-3xl font-semibold mb-2">{taman.nama}</h2>
+            <div className="flex items-center text-slate-300 space-x-4 text-sm">
               <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" /> {taman.daerah}</span>
               <span className="flex items-center"><Ruler className="w-4 h-4 mr-1" /> {taman.keluasan || 'N/A'} Ekar</span>
             </div>
@@ -1593,7 +1704,7 @@ function ProfilTaman({ taman, onBack }) {
           {/* Gambar Taman */}
           {taman.images && taman.images.length > 0 && (
             <div>
-              <h3 className="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Galeri Taman</h3>
+              <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">Galeri Taman</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {taman.images.map((img) => (
                   <div 
@@ -1604,9 +1715,14 @@ function ProfilTaman({ taman, onBack }) {
                     <img 
                       src={img.url} 
                       alt={img.caption} 
-                      className="w-full h-48 object-cover rounded-lg border-4 group-hover:opacity-80 transition"
-                      style={{borderColor: img.is_main_cover ? '#059669' : '#d1d5db'}}
+                      className="w-full h-48 object-cover border-2 group-hover:opacity-80 transition"
+                      style={{borderColor: img.is_main_cover ? '#2563eb' : '#e2e8f0'}}
                     />
+                    {img.is_main_cover && (
+                      <div className="absolute top-0 left-0 bg-blue-600 text-white px-2 py-1 text-xs font-medium">
+                        UTAMA
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1615,28 +1731,28 @@ function ProfilTaman({ taman, onBack }) {
 
           {/* Deskripsi (AI or Manual) */}
           {taman.deskripsi && (
-            <div className="bg-emerald-50/50 p-6 rounded-xl border border-emerald-100">
-              <p className="text-gray-700 leading-relaxed text-lg">{taman.deskripsi}</p>
+            <div className="bg-slate-50 p-6 border border-slate-200">
+              <p className="text-slate-700 leading-relaxed">{taman.deskripsi}</p>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {/* Maklumat Lengkap */}
             <div className="space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Maklumat Terperinci</h3>
+              <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Maklumat Terperinci</h3>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Lokasi Penuh</p>
-                  <p className="font-medium text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{taman.lokasi}</p>
+                  <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Lokasi Penuh</p>
+                  <p className="font-medium text-slate-800 bg-slate-50 p-3 border border-slate-200 text-sm">{taman.lokasi}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">PBT</p>
-                    <p className="font-medium text-gray-800">{taman.PBT || 'Tidak dinyatakan'}</p>
+                    <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">PBT</p>
+                    <p className="font-medium text-slate-800 text-sm">{taman.PBT || 'Tidak dinyatakan'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">ID Pendaftaran</p>
-                    <p className="font-medium text-gray-800 text-sm font-mono bg-gray-100 px-2 py-1 rounded inline-block">TMN-{taman.id}</p>
+                    <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">ID Pendaftaran</p>
+                    <p className="font-medium text-slate-800 text-sm font-mono bg-slate-100 px-2 py-1 inline-block">TMN-{taman.id}</p>
                   </div>
                 </div>
               </div>
@@ -1644,35 +1760,35 @@ function ProfilTaman({ taman, onBack }) {
 
             {/* Status Kemudahan */}
             <div className="space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Status Kemudahan</h3>
+              <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Status Kemudahan</h3>
               <ul className="space-y-3">
-                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="flex items-center space-x-3 text-gray-700">
-                    <Baby className="w-5 h-5 text-emerald-600" />
-                    <span className="font-medium">Tandas Awam</span>
+                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
+                  <div className="flex items-center space-x-3 text-slate-700">
+                    <Toilet className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium text-sm">Tandas Awam</span>
                   </div>
-                  {taman.kemudahan.tandas ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                  {taman.kemudahan.tandas ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
                 </li>
-                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="flex items-center space-x-3 text-gray-700">
-                    <Trees className="w-5 h-5 text-emerald-600" />
-                    <span className="font-medium">Taman Permainan</span>
+                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
+                  <div className="flex items-center space-x-3 text-slate-700">
+                    <PlayCircle className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium text-sm">Taman Permainan</span>
                   </div>
-                  {taman.kemudahan.playground ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                  {taman.kemudahan.playground ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
                 </li>
-                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="flex items-center space-x-3 text-gray-700">
-                    <Car className="w-5 h-5 text-emerald-600" />
-                    <span className="font-medium">Tempat Letak Kereta</span>
+                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
+                  <div className="flex items-center space-x-3 text-slate-700">
+                    <ParkingSquare className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium text-sm">Tempat Letak Kereta</span>
                   </div>
-                  {taman.kemudahan.parking ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                  {taman.kemudahan.parking ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
                 </li>
-                <li className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-                  <div className="flex items-center space-x-3 text-gray-700">
-                    <Home className="w-5 h-5 text-emerald-600" />
-                    <span className="font-medium">Surau</span>
+                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
+                  <div className="flex items-center space-x-3 text-slate-700">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium text-sm">Surau</span>
                   </div>
-                  {taman.kemudahan.surau ? <CheckSquare className="text-emerald-500 w-5 h-5" /> : <XSquare className="text-red-400 w-5 h-5" />}
+                  {taman.kemudahan.surau ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
                 </li>
               </ul>
             </div>
@@ -1682,19 +1798,19 @@ function ProfilTaman({ taman, onBack }) {
 
       {/* Modal Gambar Penuh */}
       {viewingImage && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="relative max-w-4xl w-full animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full">
             {/* Gambar */}
             <img 
               src={viewingImage.url} 
               alt={viewingImage.caption} 
-              className="w-full h-auto rounded-xl shadow-2xl object-contain max-h-[85vh]"
+              className="w-full h-auto shadow-2xl object-contain max-h-[85vh]"
             />
 
             {/* Tombol Tutup */}
             <button
               onClick={() => setViewingImage(null)}
-              className="absolute top-4 right-4 bg-white text-gray-800 p-2 rounded-full hover:bg-gray-100 transition shadow-lg"
+              className="absolute top-4 right-4 bg-white text-slate-800 p-2 hover:bg-slate-100 transition shadow-lg"
               title="Tutup"
             >
               <X className="w-6 h-6" />
@@ -1707,7 +1823,7 @@ function ProfilTaman({ taman, onBack }) {
                   setMainCover(viewingImage.id);
                   setViewingImage(null);
                 }}
-                className="absolute top-4 left-4 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition shadow-lg font-medium text-sm flex items-center"
+                className="absolute top-4 left-4 bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 transition font-medium text-sm flex items-center shadow-lg"
                 title="Tetapkan Gambar Utama"
               >
                 <CheckSquare className="w-5 h-5 mr-2" />
@@ -1717,8 +1833,9 @@ function ProfilTaman({ taman, onBack }) {
 
             {/* Badge Utama (jika sudah main cover) */}
             {viewingImage.is_main_cover && (
-              <div className="absolute top-4 left-4 bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg font-medium text-sm flex items-center">
+              <div className="absolute top-4 left-4 bg-blue-600 text-white px-4 py-2 shadow-lg font-medium text-sm flex items-center">
                 <CheckSquare className="w-5 h-5 mr-2" />
+                Gambar Utama
               </div>
             )}
           </div>
@@ -1797,10 +1914,10 @@ function LaporanStatistik({ tamanList }) {
   // Jika belum ada PBT dipilih, tampilkan skrin pilihan PBT
   if (!selectedPBT) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Laporan & Analitik Data</h2>
-          <p className="text-gray-600">Sila pilih sebuah Pihak Berkuasa Tempatan (PBT) untuk melihat analisis terperinci</p>
+      <div className="space-y-8">
+        <div className="pb-6 border-b border-slate-200">
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">LAPORAN & ANALITIK DATA</h2>
+          <p className="text-sm text-slate-500 mt-1">Sila pilih Pihak Berkuasa Tempatan (PBT) untuk analisis terperinci</p>
         </div>
 
         {/* Grid Senarai PBT */}
@@ -1811,29 +1928,29 @@ function LaporanStatistik({ tamanList }) {
               <button
                 key={pbt.code}
                 onClick={() => setSelectedPBT(pbt)}
-                className={`p-5 rounded-xl border-2 transition-all duration-200 text-left hover:shadow-lg transform hover:scale-105 ${
+                className={`p-5 border transition-all text-left ${
                   countTaman > 0 
-                    ? 'bg-white border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer' 
-                    : 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
+                    ? 'bg-white border-slate-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer' 
+                    : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
                 }`}
                 disabled={countTaman === 0}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="font-bold text-gray-800 text-sm">{pbt.nama}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{pbt.code}</p>
+                    <h3 className="font-semibold text-slate-800 text-sm">{pbt.nama}</h3>
+                    <p className="text-xs text-slate-500 mt-1">{pbt.code}</p>
                   </div>
-                  <div className="bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                  <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center text-sm font-semibold">
                     {countTaman}
                   </div>
                 </div>
                 {countTaman > 0 && (
-                  <div className="text-xs text-emerald-600 font-medium">
+                  <div className="text-xs text-blue-600 font-medium">
                     Klik untuk lihat laporan
                   </div>
                 )}
                 {countTaman === 0 && (
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-slate-400">
                     Tiada data
                   </div>
                 )}
@@ -1847,18 +1964,18 @@ function LaporanStatistik({ tamanList }) {
 
   // Tampilkan dashboard untuk PBT yang dipilih
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <div className="flex items-center justify-between pb-6 border-b border-slate-200">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">{selectedPBT.fullName}</h2>
-          <p className="text-gray-600 mt-1">Laporan & Analitik Data</p>
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{selectedPBT.fullName}</h2>
+          <p className="text-sm text-slate-500 mt-1">Laporan & Analitik Data</p>
         </div>
         <button
           onClick={() => {
             setSelectedPBT(null);
             setAiInsights("");
           }}
-          className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
+          className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Kembali ke Senarai PBT</span>
@@ -1867,25 +1984,25 @@ function LaporanStatistik({ tamanList }) {
       
       {/* Kad Ringkasan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-emerald-500 flex items-center justify-between">
+        <div className="bg-white p-6 border-l-4 border-l-blue-600 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Taman</p>
-            <h3 className="text-3xl font-bold text-gray-800">{jumlahTaman}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wider">Jumlah Taman</p>
+            <h3 className="text-3xl font-bold text-slate-800">{jumlahTaman}</h3>
           </div>
-          <Trees className="w-12 h-12 text-emerald-100" />
+          <Trees className="w-12 h-12 text-blue-100" />
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-blue-500 flex items-center justify-between">
+        <div className="bg-white p-6 border-l-4 border-l-slate-600 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Jumlah Keluasan (Ekar)</p>
-            <h3 className="text-3xl font-bold text-gray-800">{jumlahKeluasan.toFixed(2)}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wider">Jumlah Keluasan (Ekar)</p>
+            <h3 className="text-3xl font-bold text-slate-800">{jumlahKeluasan.toFixed(2)}</h3>
           </div>
-          <Map className="w-12 h-12 text-blue-100" />
+          <Map className="w-12 h-12 text-slate-100" />
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-amber-500 flex items-center justify-between">
+        <div className="bg-white p-6 border-l-4 border-l-amber-500 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">Daerah Tertinggi</p>
-            <h3 className="text-xl font-bold text-gray-800">{taburanDaerah.length > 0 ? taburanDaerah[0][0] : 'Tiada'}</h3>
-            <p className="text-sm text-gray-500">{taburanDaerah.length > 0 ? `${taburanDaerah[0][1]} Taman` : ''}</p>
+            <p className="text-xs font-medium text-slate-500 mb-1 uppercase tracking-wider">Daerah Tertinggi</p>
+            <h3 className="text-xl font-bold text-slate-800">{taburanDaerah.length > 0 ? taburanDaerah[0][0] : 'Tiada'}</h3>
+            <p className="text-sm text-slate-500">{taburanDaerah.length > 0 ? `${taburanDaerah[0][1]} Taman` : ''}</p>
           </div>
           <MapPin className="w-12 h-12 text-amber-100" />
         </div>
@@ -1893,48 +2010,48 @@ function LaporanStatistik({ tamanList }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Carta Bar Mudah: Taburan Mengikut Daerah */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-6">Bilangan Taman Mengikut Daerah</h3>
+        <div className="bg-white p-6 border border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-6 border-b border-slate-200 pb-2">Bilangan Taman Mengikut Daerah</h3>
           <div className="space-y-4">
             {taburanDaerah.map(([daerah, count]) => {
               const peratus = (count / jumlahTaman) * 100;
               return (
                 <div key={daerah}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-gray-700">{daerah}</span>
-                    <span className="text-gray-500">{count} taman ({peratus.toFixed(1)}%)</span>
+                    <span className="font-medium text-slate-700">{daerah}</span>
+                    <span className="text-slate-500">{count} taman ({peratus.toFixed(1)}%)</span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2.5">
-                    <div className="bg-emerald-500 h-2.5 rounded-full" style={{ width: `${peratus}%` }}></div>
+                  <div className="w-full bg-slate-100 h-2">
+                    <div className="bg-blue-600 h-2" style={{ width: `${peratus}%` }}></div>
                   </div>
                 </div>
               );
             })}
-            {taburanDaerah.length === 0 && <p className="text-gray-400 text-center py-4">Tiada data direkodkan.</p>}
+            {taburanDaerah.length === 0 && <p className="text-slate-400 text-center py-4 text-sm">Tiada data direkodkan.</p>}
           </div>
         </div>
 
         {/* Taburan Mengikut Jenis */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-6">Pecahan Mengikut Jenis Taman</h3>
+        <div className="bg-white p-6 border border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-6 border-b border-slate-200 pb-2">Pecahan Mengikut Jenis Taman</h3>
           <div className="space-y-4">
             {taburanJenis.map(([jenis, count]) => {
               const peratus = (count / jumlahTaman) * 100;
               return (
-                <div key={jenis} className="flex items-center p-3 hover:bg-gray-50 rounded-lg transition border border-transparent hover:border-gray-100">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-4">
+                <div key={jenis} className="flex items-center p-3 hover:bg-slate-50 transition border border-slate-100">
+                  <div className="w-10 h-10 bg-blue-100 text-blue-600 flex items-center justify-center mr-4">
                     <Trees className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-800">{jenis}</h4>
+                    <h4 className="font-medium text-slate-800 text-sm">{jenis}</h4>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-gray-800">{count}</div>
+                    <div className="text-xl font-bold text-slate-800">{count}</div>
                   </div>
                 </div>
               );
             })}
-            {taburanJenis.length === 0 && <p className="text-gray-400 text-center py-4">Tiada data direkodkan.</p>}
+            {taburanJenis.length === 0 && <p className="text-slate-400 text-center py-4 text-sm">Tiada data direkodkan.</p>}
           </div>
         </div>
       </div>
