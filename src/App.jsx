@@ -4,8 +4,7 @@ import {
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
   XSquare, Download, Car, Tent, Home, Baby,
   Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft,
-  Building2, Landmark, Check, XIcon, Toilet, ParkingSquare, PlayCircle, HeartHandshake,
-  TreePalm,
+  Building2, Check, XIcon, Toilet, ParkingSquare, PlayCircle,
   TreePineIcon
 } from 'lucide-react';
 import Papa from 'papaparse';
