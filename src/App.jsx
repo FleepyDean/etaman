@@ -1120,7 +1120,10 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-700">PBT</label>
-              <input type="text" name="PBT" value={formData.PBT} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: MBIP, MBJB" />
+              <select name="PBT" value={formData.PBT} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 bg-white">
+                <option value="">Pilih PBT</option>
+                {SENARAI_PBT.map(pbt => <option key={pbt.code} value={pbt.fullName}>{pbt.fullName}</option>)}
+              </select>
             </div>
           </div>
         </div>
