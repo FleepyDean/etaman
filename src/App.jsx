@@ -730,7 +730,7 @@ export default function SistemPengurusanTaman() {
                         </td>
                         <td className="p-4">
                           <span className="text-slate-600 text-xs bg-slate-50 border border-slate-200 px-2 py-1">
-                            {taman.PBT || '-'}
+                            {(taman.PBT && SENARAI_PBT.find(p => p.fullName === taman.PBT)?.code) || taman.PBT || '-'}
                           </span>
                         </td>
                         <td className="p-4 text-slate-600 text-sm">{taman.daerah}</td>
