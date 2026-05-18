@@ -36,8 +36,8 @@ This system solves the issue of delayed and fragmented data collection from loca
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/FleepyDean/etaman.git
-cd etaman
+git clone https://github.com/FleepyDean/eTaman.git
+cd eTaman
 ```
 
 ### 2. Frontend Setup
