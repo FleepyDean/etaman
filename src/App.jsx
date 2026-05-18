@@ -1778,34 +1778,25 @@ function ProfilTaman({ taman, onBack }) {
             <div className="space-y-6">
               <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">Status Kemudahan</h3>
               <ul className="space-y-3">
-                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
-                  <div className="flex items-center space-x-3 text-slate-700">
-                    <Toilet className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-sm">Tandas Awam</span>
-                  </div>
-                  {taman.kemudahan.tandas ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
-                </li>
-                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
-                  <div className="flex items-center space-x-3 text-slate-700">
-                    <PlayCircle className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-sm">Taman Permainan</span>
-                  </div>
-                  {taman.kemudahan.playground ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
-                </li>
-                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
-                  <div className="flex items-center space-x-3 text-slate-700">
-                    <ParkingSquare className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-sm">Tempat Letak Kereta</span>
-                  </div>
-                  {taman.kemudahan.parking ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
-                </li>
-                <li className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200">
-                  <div className="flex items-center space-x-3 text-slate-700">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-sm">Surau</span>
-                  </div>
-                  {taman.kemudahan.surau ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
-                </li>
+                {[
+                  { key: 'tandas', icon: Toilet, label: 'Tandas Awam' },
+                  { key: 'playground', icon: PlayCircle, label: 'Taman Permainan' },
+                  { key: 'parking', icon: ParkingSquare, label: 'Tempat Letak Kereta' },
+                  { key: 'surau', icon: Building2, label: 'Surau' }
+                ]
+                  .sort((a, b) => (taman.kemudahan[b.key] ? 1 : 0) - (taman.kemudahan[a.key] ? 1 : 0))
+                  .map(({ key, icon: Icon, label }) => {
+                    const isAvailable = taman.kemudahan[key];
+                    return (
+                      <li key={key} className={`flex items-center justify-between p-3 border ${isAvailable ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200'}`}>
+                        <div className={`flex items-center space-x-3 ${isAvailable ? 'text-slate-700' : 'text-slate-400'}`}>
+                          <Icon className={`w-5 h-5 ${isAvailable ? 'text-blue-600' : 'text-slate-400'}`} />
+                          <span className="font-medium text-sm">{label}</span>
+                        </div>
+                        {isAvailable ? <CheckSquare className="text-blue-600 w-5 h-5" /> : <XSquare className="text-slate-400 w-5 h-5" />}
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           </div>
