@@ -163,24 +163,25 @@ const initialData = [
 ];
 
 const SENARAI_DAERAH = ['Johor Bahru', 'Kluang', 'Batu Pahat', 'Muar', 'Kulai', 'Kota Tinggi', 'Segamat', 'Pontian', 'Mersing', 'Tangkak'];
-const JENIS_TAMAN = ['Taman Tempatan', 'Taman Bandaran', 'Lot Permainan', 'Padang Permainan', 'Taman Kejiranan', 'Taman Permainan'];
+const JENIS_TAMAN = ['Lot Permainan', 'Padang Permainan', 'Taman Kejiranan', 'Taman Tempatan', 'Taman Bandaran', 'Taman Wilayah', 'Taman Nasional'];
 
+// source: https://jkt.kpkt.gov.my/data-pbt-senarai_pbt/
 const SENARAI_PBT = [
   { code: 'MBJB', nama: 'Majlis Bandaraya Johor Bahru', fullName: 'Majlis Bandaraya Johor Bahru (MBJB)' },
   { code: 'MBIP', nama: 'Majlis Bandaraya Iskandar Puteri', fullName: 'Majlis Bandaraya Iskandar Puteri (MBIP)' },
   { code: 'MBPG', nama: 'Majlis Bandaraya Pasir Gudang', fullName: 'Majlis Bandaraya Pasir Gudang (MBPG)' },
   { code: 'MPBP', nama: 'Majlis Perbandaran Batu Pahat', fullName: 'Majlis Perbandaran Batu Pahat (MPBP)' },
-  { code: 'MPK', nama: 'Majlis Perbandaran Kluang', fullName: 'Majlis Perbandaran Kluang (MPK)' },
-  { code: 'MPM', nama: 'Majlis Perbandaran Muar', fullName: 'Majlis Perbandaran Muar (MPM)' },
+  { code: 'MPKluang', nama: 'Majlis Perbandaran Kluang', fullName: 'Majlis Perbandaran Kluang (MPKluang)' },
+  { code: 'MPMuar', nama: 'Majlis Perbandaran Muar', fullName: 'Majlis Perbandaran Muar (MPMuar)' },
   { code: 'MPKulai', nama: 'Majlis Perbandaran Kulai', fullName: 'Majlis Perbandaran Kulai (MPKulai)' },
-  { code: 'MPS', nama: 'Majlis Perbandaran Segamat', fullName: 'Majlis Perbandaran Segamat (MPS)' },
+  { code: 'MPSegamat', nama: 'Majlis Perbandaran Segamat', fullName: 'Majlis Perbandaran Segamat (MPSegamat)' },
   { code: 'MPPengerang', nama: 'Majlis Perbandaran Pengerang', fullName: 'Majlis Perbandaran Pengerang (MPPengerang)' },
   { code: 'MPPn', nama: 'Majlis Perbandaran Pontian', fullName: 'Majlis Perbandaran Pontian (MPPn)' },
   { code: 'MDKT', nama: 'Majlis Daerah Kota Tinggi', fullName: 'Majlis Daerah Kota Tinggi (MDKT)' },
-  { code: 'MDL', nama: 'Majlis Daerah Labis', fullName: 'Majlis Daerah Labis (MDL)' },
-  { code: 'MDM', nama: 'Majlis Daerah Mersing', fullName: 'Majlis Daerah Mersing (MDM)' },
+  { code: 'MDLabis', nama: 'Majlis Daerah Labis', fullName: 'Majlis Daerah Labis (MDLabis)' },
+  { code: 'MDMersing', nama: 'Majlis Daerah Mersing', fullName: 'Majlis Daerah Mersing (MDMersing)' },
   { code: 'MDSR', nama: 'Majlis Daerah Simpang Renggam', fullName: 'Majlis Daerah Simpang Renggam (MDSR)' },
-  { code: 'MDT', nama: 'Majlis Daerah Tangkak', fullName: 'Majlis Daerah Tangkak (MDT)' },
+  { code: 'MDTangkak', nama: 'Majlis Daerah Tangkak', fullName: 'Majlis Daerah Tangkak (MDTangkak)' },
   { code: 'MDYP', nama: 'Majlis Daerah Yong Peng', fullName: 'Majlis Daerah Yong Peng (MDYP)' }
 ];
 
@@ -196,6 +197,7 @@ export default function SistemPengurusanTaman() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDaerah, setFilterDaerah] = useState('');
   const [filterJenis, setFilterJenis] = useState('');
+  const [filterPBT, setFilterPBT] = useState('');
   const [filterKemudahan, setFilterKemudahan] = useState({
     tandas: false, playground: false, parking: false, surau: false
   });
@@ -516,15 +518,16 @@ export default function SistemPengurusanTaman() {
                           t.lokasi.toLowerCase().includes(searchQuery.toLowerCase());
       const matchDaerah = filterDaerah ? t.daerah === filterDaerah : true;
       const matchJenis = filterJenis ? t.jenis === filterJenis : true;
+      const matchPBT = filterPBT ? (t.PBT === filterPBT || t.PBT === SENARAI_PBT.find(p => p.fullName === filterPBT)?.code) : true;
       
       const matchTandas = filterKemudahan.tandas ? t.kemudahan.tandas : true;
       const matchPlayground = filterKemudahan.playground ? t.kemudahan.playground : true;
       const matchParking = filterKemudahan.parking ? t.kemudahan.parking : true;
       const matchSurau = filterKemudahan.surau ? t.kemudahan.surau : true;
 
-      return matchSearch && matchDaerah && matchJenis && matchTandas && matchPlayground && matchParking && matchSurau;
+      return matchSearch && matchDaerah && matchJenis && matchPBT && matchTandas && matchPlayground && matchParking && matchSurau;
     });
-  }, [tamanList, searchQuery, filterDaerah, filterJenis, filterKemudahan]);
+  }, [tamanList, searchQuery, filterDaerah, filterJenis, filterPBT, filterKemudahan]);
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-800">
@@ -600,7 +603,7 @@ export default function SistemPengurusanTaman() {
 
             {/* Ruangan Tapisan (Filter) */}
             <div className="bg-white p-5 border border-slate-200 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
                   <input 
@@ -627,6 +630,14 @@ export default function SistemPengurusanTaman() {
                   <option value="">Semua Jenis Taman</option>
                   {JENIS_TAMAN.map(j => <option key={j} value={j}>{j}</option>)}
                 </select>
+                <select 
+                  value={filterPBT} 
+                  onChange={(e) => setFilterPBT(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
+                >
+                  <option value="">Semua PBT</option>
+                  {SENARAI_PBT.map(pbt => <option key={pbt.code} value={pbt.fullName}>{pbt.fullName}</option>)}
+                </select>
               </div>
 
               {/* Tapisan Kemudahan */}
@@ -643,10 +654,10 @@ export default function SistemPengurusanTaman() {
                     <span className="capitalize text-slate-600">{key}</span>
                   </label>
                 ))}
-                {(searchQuery || filterDaerah || filterJenis || Object.values(filterKemudahan).some(Boolean)) && (
+                {(searchQuery || filterDaerah || filterJenis || filterPBT || Object.values(filterKemudahan).some(Boolean)) && (
                   <button 
                     onClick={() => {
-                      setSearchQuery(''); setFilterDaerah(''); setFilterJenis('');
+                      setSearchQuery(''); setFilterDaerah(''); setFilterJenis(''); setFilterPBT('');
                       setFilterKemudahan({tandas: false, playground: false, parking: false, surau: false});
                     }}
                     className="text-xs text-blue-600 hover:text-blue-800 font-medium ml-auto"
@@ -666,14 +677,14 @@ export default function SistemPengurusanTaman() {
                     onClick={() => setSelectedIds([])}
                     className="text-sm text-blue-200 hover:text-white transition-colors"
                   >
-                    Nyahpilih
+                    Batal
                   </button>
                   <button
                     onClick={() => setShowBulkDeleteModal(true)}
                     className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-sm font-medium transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Padam Dipilih
+                    Padam
                   </button>
                 </div>
               </div>
@@ -695,6 +706,7 @@ export default function SistemPengurusanTaman() {
                         />
                       </th>
                       <th className="p-4 font-semibold">Nama Taman</th>
+                      <th className="p-4 font-semibold">PBT</th>
                       <th className="p-4 font-semibold">Daerah</th>
                       <th className="p-4 font-semibold">Jenis</th>
                       <th className="p-4 font-semibold text-center">Kemudahan</th>
@@ -715,6 +727,11 @@ export default function SistemPengurusanTaman() {
                         <td className="p-4">
                           <div className="font-medium text-slate-900">{taman.nama}</div>
                           <div className="text-sm text-slate-500 truncate max-w-xs">{taman.lokasi}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-slate-600 text-xs bg-slate-50 border border-slate-200 px-2 py-1">
+                            {taman.PBT || '-'}
+                          </span>
                         </td>
                         <td className="p-4 text-slate-600 text-sm">{taman.daerah}</td>
                         <td className="p-4">
@@ -746,7 +763,7 @@ export default function SistemPengurusanTaman() {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan="6" className="p-8 text-center text-slate-500 text-sm">
+                        <td colSpan="7" className="p-8 text-center text-slate-500 text-sm">
                           Tiada rekod dijumpai.
                         </td>
                       </tr>
