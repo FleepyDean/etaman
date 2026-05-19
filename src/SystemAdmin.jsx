@@ -768,15 +768,11 @@ function AuditLogModule({
 }) {
     const actionTypes = [
         { value: '', label: 'Semua Tindakan' },
-        { value: 'LOGIN', label: 'Log Masuk' },
-        { value: 'LOGOUT', label: 'Log Keluar' },
         { value: 'CREATE', label: 'Cipta' },
         { value: 'UPDATE', label: 'Kemaskini' },
         { value: 'DELETE', label: 'Padam' },
         { value: 'DEACTIVATE', label: 'Nyahaktifkan' },
         { value: 'ACTIVATE', label: 'Aktifkan' },
-        { value: 'EXPORT', label: 'Eksport' },
-        { value: 'IMPORT', label: 'Import' }
     ];
 
     return (
