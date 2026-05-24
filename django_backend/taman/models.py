@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 class Taman(models.Model):
@@ -42,3 +43,73 @@ class TamanImage(models.Model):
 
 	def __str__(self):
 		return f"{self.taman.nama} - {self.id}"
+
+
+class Daerah(models.Model):
+    nama = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20, default='Active')  # Active / Inactive
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+
+class StatusTanah(models.Model):
+    nama = models.CharField(max_length=100, unique=True)
+    keterangan = models.TextField(blank=True)
+    status = models.CharField(max_length=20, default='Active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+
+class Facility(models.Model):
+    nama = models.CharField(max_length=100, unique=True)
+    kategori = models.CharField(max_length=50, blank=True)  # e.g., Sukan, Infrastruktur
+    status = models.CharField(max_length=20, default='Active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['nama']
+        verbose_name_plural = "Facilities"
+
+    def __str__(self):
+        return self.nama
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    district = models.ForeignKey(Daerah, on_delete=models.SET_NULL, null=True, blank=True)
+    role = models.CharField(max_length=20, choices=[
+        ('JLNJ_ADMIN', 'JLNJ Administrator'),
+        ('PBT_OFFICER', 'PBT Officer'),
+    ], default='PBT_OFFICER')
+    phone = models.CharField(max_length=20, blank=True)
+    status = models.CharField(max_length=20, default='Active')  # Active / Inactive
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role}"
+
+
+class AuditLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action_type = models.CharField(max_length=30)  # CREATE, UPDATE, DELETE, LOGIN, etc.
+    description = models.TextField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.action_type} by {self.user} at {self.timestamp}"
