@@ -1171,7 +1171,7 @@ export default function SistemPengurusanTaman() {
             onClick={() => setChatOpen((value) => !value)}
             className="inline-flex items-center gap-3 rounded-full bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-slate-900/10 ring-1 ring-blue-700/20 hover:bg-blue-700"
           >
-            <span>eTaman Chat</span>
+            
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-blue-600">💬</span>
           </button>
         </div>
