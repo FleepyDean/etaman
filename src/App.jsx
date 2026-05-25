@@ -5,10 +5,11 @@ import {
   XSquare, Download, Car, Tent, Home, Baby,
   Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft,
   Building2, Check, XIcon, Toilet, ParkingSquare, PlayCircle,
-  TreePineIcon
+  TreePineIcon, Settings
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import SystemAdmin from './SystemAdmin';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
@@ -764,6 +765,12 @@ export default function SistemPengurusanTaman() {
           >
             <BarChart3 className="w-4 h-4" /> <span>Laporan & Analitik</span>
           </button>
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${activeTab === 'admin' ? 'bg-purple-900/30 text-purple-100 border-l-2 border-purple-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <Settings className="w-4 h-4" /> <span>Pentadbiran Sistem</span>
+          </button>
         </nav>
         <div className="p-4 text-[10px] text-slate-500 text-center border-t border-slate-800">
           HAK CIPTA © 2026<br/>JABATAN PERANCANGAN BANDAR
@@ -1018,6 +1025,9 @@ export default function SistemPengurusanTaman() {
         {/* MODUL 3: LAPORAN & STATISTIK */}
         {!loading && activeTab === 'laporan' && (
           <LaporanStatistik tamanList={tamanList} />
+        )}
+        {!loading && activeTab === 'admin' && (
+          <SystemAdmin />
         )}
 
       </main>
