@@ -2238,15 +2238,152 @@ function LaporanStatistik({ tamanList }) {
                 className={`p-5 border transition-all text-left ${
                   countTaman > 0 
                     ? 'bg-white border-slate-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer' 
-                    : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                    : 'bg-slate-50 border-slate-2 opacity-60'
                 }`}
                 disabled={countTaman === 0}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800 text-sm">{pbt.nama}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{pbt.code}</p>
-                  </div>
+                  <div className="flex items-center gap-3">
+
+  {pbt.code === 'MBJB' && (
+    <img
+      src="/Crest_of_Johor_Bahru.png"
+      alt="MBJB Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPKluang' && (
+    <img
+      src="/mpk_3.png"
+      alt="MPK Kluang Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPPengerang' && (
+    <img
+      src="/mpp.png"
+      alt="MPP Pengerang Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDMersing' && (
+    <img
+      src="/mdmersing.png"
+      alt="MD Mersing Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MBIP' && (
+    <img
+      src="/mbip.png"
+      alt="MBIP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPMuar' && (
+    <img
+      src="/MPM-logo.png"
+      alt="MP Muar Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPPn' && (
+    <img
+      src="/Mp_pontian.png"
+      alt="MPPontian Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDSR' && (
+    <img
+      src="/mdsr.jpg"
+      alt="MDSR Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MBPG' && (
+    <img
+      src="/mbpg.png"
+      alt="MBPG Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPKulai' && (
+    <img
+      src="/mpkulai.png"
+      alt="MPKulai Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDKT' && (
+    <img
+      src="/mdkt.png"
+      alt="MDKT Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDTangkak' && (
+    <img
+      src="/mdt.png"
+      alt="MDT Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPBP' && (
+    <img
+      src="/mpbp.png"
+      alt="MPBP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPSegamat' && (
+    <img
+      src="/mps.jpg"
+      alt="MPS Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDLabis' && (
+    <img
+      src="/Mdlabis.png"
+      alt="MPLapis Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDYP' && (
+    <img
+      src="/mdyp.png"
+      alt="MDYP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  <div>
+    <h3 className="font-semibold text-slate-800">
+      {pbt.nama}
+    </h3>
+
+    <p className="text-slate-500 text-sm">
+      {pbt.code}
+    </p>
+  </div>
+
+</div>
                   <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center text-sm font-semibold">
                     {countTaman}
                   </div>
@@ -2267,6 +2404,7 @@ function LaporanStatistik({ tamanList }) {
         </div>
       </div>
     );
+
   }
 
   // Tampilkan dashboard untuk PBT yang dipilih
@@ -2364,4 +2502,38 @@ function LaporanStatistik({ tamanList }) {
       </div>
     </div>
   );
+
+}
+
+import {
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+import { Pie, Bar, Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
+
+// THEN continue your code
+function App() {
+
+  // states
+  // calculations
+  // functions
 }
