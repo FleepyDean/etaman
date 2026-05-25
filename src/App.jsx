@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
@@ -46,6 +46,174 @@ const callGeminiAPI = async (prompt) => {
       delay *= 2;
     }
   }
+};
+
+const FACILITIES = ['tandas', 'surau', 'playground', 'parking'];
+const JENIS_TAMAN_AI = ['taman tempatan', 'taman rekreasi', 'taman botani', 'taman awam', 'taman bandar', 'hutan bandar', 'taman'];
+const PBT_LOOKUP = [
+  { code: 'MBJB', names: ['mbjb', 'majlis bandaraya johor bahru'] },
+  { code: 'MBIP', names: ['mbip', 'majlis bandaraya iskandar puteri'] },
+  { code: 'MBPG', names: ['mbpg', 'majlis bandaraya pasir gudang'] },
+  { code: 'MPBP', names: ['mpbp', 'majlis perbandaran batu pahat'] },
+  { code: 'MPKluang', names: ['mpkluang', 'majlis perbandaran kluang'] },
+  { code: 'MPMuar', names: ['mpmuar', 'majlis perbandaran muar'] },
+  { code: 'MPKulai', names: ['mpkulai', 'majlis perbandaran kulai'] },
+  { code: 'MPSegamat', names: ['mpsegamat', 'majlis perbandaran segamat'] },
+  { code: 'MPPengerang', names: ['mppengerang', 'majlis perbandaran pengerang'] },
+  { code: 'MPPn', names: ['mppn', 'majlis perbandaran pontian'] },
+  { code: 'MDKT', names: ['mdkt', 'majlis daerah kota tinggi'] },
+  { code: 'MDLabis', names: ['mdlabis', 'majlis daerah labis'] },
+  { code: 'MDMersing', names: ['mdmersing', 'majlis daerah mersing'] },
+  { code: 'MDSR', names: ['mdsr', 'majlis daerah simpang renggam'] },
+  { code: 'MDTangkak', names: ['mdtangkak', 'majlis daerah tangkak'] },
+  { code: 'MDYP', names: ['mdyp', 'majlis daerah yong peng'] }
+];
+
+const QUICK_SUGGESTIONS = [
+  'Berapa jumlah taman yang ada?',
+  'Taman MBJB dengan parking',
+  'Taman yang ada surau dan tandas',
+  'Senarai taman rekreasi',
+  'Apa kemudahan di Taman Merdeka?'
+];
+
+const formatFacilityText = (kemudahan) => {
+  return FACILITIES
+    .filter(key => kemudahan?.[key])
+    .map(item => item === 'parking' ? 'parking' : item)
+    .join(', ');
+};
+
+const formatParkCard = (taman) => {
+  const facilities = formatFacilityText(taman.kemudahan);
+  return `• ${taman.nama} (${taman.daerah}) — ${taman.jenis}${facilities ? `, kemudahan: ${facilities}` : ''}`;
+};
+
+const buildParkSummary = (filtered) => {
+  if (!filtered.length) return 'Maaf, tiada taman yang sepadan dengan kriteria tersebut dalam sistem.';
+  const lines = filtered.slice(0, 6).map(formatParkCard);
+  const more = filtered.length > 6 ? `\nDan ${filtered.length - 6} taman lagi memenuhi kriteria.` : '';
+  return `${filtered.length} taman ditemui:\n${lines.join('\n')}${more}`;
+};
+
+const findPBTMatches = (query) => {
+  const match = PBT_LOOKUP.find((item) => item.names.some(name => query.includes(name)));
+  return match ? [match.code] : [];
+};
+
+const findJenisMatch = (query) => {
+  return JENIS_TAMAN_AI.find((jenis) => query.includes(jenis));
+};
+
+const parseFacilityFilters = (query) => {
+  const filters = {};
+  FACILITIES.forEach((facility) => {
+    if (!query.includes(facility)) return;
+    const negativePattern = new RegExp(`(?:tidak ada|tiada|tanpa)\\s+${facility}|${facility}\\s+(?:tidak ada|tiada|tanpa)`, 'i');
+    filters[facility] = !negativePattern.test(query);
+  });
+  return filters;
+};
+
+const filterTamanList = (tamanList, query) => {
+  const normalized = query.toLowerCase();
+  const facilityFilters = parseFacilityFilters(normalized);
+  const pbtCodes = findPBTMatches(normalized);
+  const jenisFilter = findJenisMatch(normalized);
+
+  return tamanList.filter((taman) => {
+    const facilityMatch = Object.entries(facilityFilters).every(([key, required]) => {
+      return required ? taman.kemudahan?.[key] : !taman.kemudahan?.[key];
+    });
+    const pbtMatch = pbtCodes.length
+      ? pbtCodes.includes(taman.PBT) || pbtCodes.some(code => taman.PBT?.toLowerCase().includes(code.toLowerCase()))
+      : true;
+    const jenisMatch = jenisFilter ? taman.jenis.toLowerCase().includes(jenisFilter) : true;
+    return facilityMatch && pbtMatch && jenisMatch;
+  });
+};
+
+const callOpenAIReply = async (userText, tamanList) => {
+  const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!OPENAI_KEY) return '';
+  const prompt = `Kamu ialah chatbot untuk sistem pengurusan taman. Jawab dalam Bahasa Melayu sahaja. Gunakan data taman berikut:\n${tamanList.map((t) => `${t.nama} | ${t.daerah} | ${t.jenis} | PBT: ${t.PBT} | kemudahan: ${formatFacilityText(t.kemudahan)}`).join('\n')}\n\nSoalan: ${userText}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Anda adalah pembantu Bahasa Melayu untuk sistem pengurusan taman. Gunakan maklumat taman yang tersedia dan jawab secara langsung.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 350
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI error', errorText);
+    return '';
+  }
+
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content?.trim() || '';
+};
+
+export async function getBotReply(userText, tamanList = []) {
+  const normalized = userText.trim().toLowerCase();
+  const countRequest = /berapa|jumlah|berapa banyak/.test(normalized);
+  const hasTamanKeyword = /taman|rekreasi|botani|awam|bandar|hutan/i.test(normalized);
+  const facilityFilters = parseFacilityFilters(normalized);
+  const pbtCodes = findPBTMatches(normalized);
+  const jenisFilter = findJenisMatch(normalized);
+  const filteredByName = tamanList.filter((taman) => normalized.includes(taman.nama.toLowerCase()));
+
+  if (filteredByName.length > 0 && /apa|kemudahan|deskripsi|ciri|info/.test(normalized)) {
+    const descriptions = filteredByName.map((taman) => `• ${taman.nama} (${taman.daerah}): ${taman.deskripsi || 'Tiada deskripsi tersedia.'}`).join('\n');
+    return `Berikut ialah ringkasan taman yang anda tanya:\n${descriptions}`;
+  }
+
+  if (pbtCodes.length || Object.keys(facilityFilters).length || jenisFilter) {
+    const filtered = filterTamanList(tamanList, normalized);
+    if (!filtered.length) {
+      return 'Maaf, saya tidak menemui taman yang sepadan dengan kriteria tersebut. Sila cuba dengan kriteria lain atau semak ejaan PBT / kemudahan anda.';
+    }
+    if (countRequest) {
+      if (pbtCodes.length) {
+        return `Terdapat ${filtered.length} taman di bawah PBT ${pbtCodes.join(', ')}.`;
+      }
+      if (Object.keys(facilityFilters).length) {
+        const facilityText = Object.entries(facilityFilters)
+          .filter(([, value]) => value)
+          .map(([key]) => key)
+          .join(' dan ');
+        return `Terdapat ${filtered.length} taman yang mempunyai ${facilityText}.\n${buildParkSummary(filtered)}`;
+      }
+      if (jenisFilter) {
+        return `Terdapat ${filtered.length} ${jenisFilter} dalam sistem.\n${buildParkSummary(filtered)}`;
+      }
+    }
+    return buildParkSummary(filtered);
+  }
+
+  if (hasTamanKeyword && countRequest) {
+    return `Jumlah taman dalam sistem adalah ${tamanList.length}. Anda boleh tanya tentang PBT, kemudahan, atau jenis taman.`;
+  }
+
+  if (hasTamanKeyword) {
+    const filtered = filterTamanList(tamanList, normalized);
+    if (filtered.length) {
+      return buildParkSummary(filtered);
+    }
+  }
+
+  return `Saya ialah pembantu eTaman. Anda boleh bertanya tentang jumlah taman, PBT tertentu seperti MBJB, atau kemudahan seperti tandas, surau, playground, parking. Contoh: "Taman yang ada surau" atau "Berapa banyak taman MBJB?"`;
 };
 
 // --- DATA AWAL (MOCK DATA) ---
@@ -193,6 +361,15 @@ export default function SistemPengurusanTaman() {
   const [tamanToDelete, setTamanToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Chatbot State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'assistant', content: 'Hai! Saya Chatbot eTaman. Tanyakan tentang jumlah taman, PBT atau kemudahan.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollRef = useRef(null);
+
   // Filter & Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDaerah, setFilterDaerah] = useState('');
@@ -316,6 +493,39 @@ export default function SistemPengurusanTaman() {
   const handleViewProfil = (taman) => {
     setViewingTaman(taman);
     setActiveTab('profil');
+  };
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
+
+  const appendChatMessage = (message) => {
+    setChatMessages((prev) => [...prev, message]);
+  };
+
+  const sendChatMessage = async (text) => {
+    if (!text.trim()) return;
+    appendChatMessage({ role: 'user', content: text.trim() });
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const answer = await getBotReply(text.trim(), tamanList);
+      appendChatMessage({ role: 'assistant', content: answer });
+    } catch (error) {
+      appendChatMessage({ role: 'assistant', content: 'Maaf, terdapat masalah semasa memproses soalan. Sila cuba lagi.' });
+      console.error(error);
+    } finally {
+      setChatLoading(false);
+      setChatOpen(true);
+    }
+  };
+
+  const handleChatSubmit = async (event) => {
+    event.preventDefault();
+    await sendChatMessage(chatInput);
   };
 
   // --- FUNGSI EKSPORT (MODUL 3) ---
@@ -581,7 +791,7 @@ export default function SistemPengurusanTaman() {
                 <h2 className="text-xl font-semibold text-slate-900 tracking-tight">SENARAI TAMAN</h2>
                 <p className="text-sm text-slate-500 mt-1">Pengurusan rekod taman rekreasi dan awam</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button onClick={() => { setEditingId(null); setViewingTaman(null); setActiveTab('borang'); }} className="flex items-center space-x-2 bg-blue-700 text-white px-4 py-2 text-sm font-medium hover:bg-blue-800 transition-colors">
                   <Plus className="w-4 h-4" /> <span>Tambah Rekod</span>
                 </button>
@@ -597,6 +807,9 @@ export default function SistemPengurusanTaman() {
                 />
                 <button onClick={handleExportCSV} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
                   <Download className="w-4 h-4" /> <span>Eksport</span>
+                </button>
+                <button onClick={() => setChatOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors">
+                  <Bot className="w-4 h-4" /> <span>Chat eTaman</span>
                 </button>
               </div>
             </div>
@@ -866,6 +1079,80 @@ export default function SistemPengurusanTaman() {
           </div>
         </div>
       )}
+      <div className="fixed bottom-6 right-6 z-50 text-slate-900">
+        <div className="flex flex-col items-end gap-2">
+          {chatOpen && (
+            <div className="w-[360px] md:w-[420px] bg-white border border-slate-200 shadow-2xl rounded-3xl overflow-hidden ring-1 ring-slate-200">
+              <div className="flex items-center justify-between bg-blue-700 px-4 py-3 text-white">
+                <div>
+                  <h3 className="text-sm font-semibold">Chatbot eTaman</h3>
+                  <p className="text-[11px] text-blue-100">Tanyakan tentang taman, PBT, jenis dan kemudahan.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChatOpen(false)}
+                  className="rounded-full bg-blue-800/90 p-2 hover:bg-blue-900 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="max-h-[420px] overflow-y-auto bg-slate-50 p-4 space-y-4" ref={chatScrollRef}>
+                {chatMessages.map((message, index) => (
+                  <div key={index} className={`rounded-2xl p-3 ${message.role === 'assistant' ? 'bg-slate-100 text-slate-900' : 'bg-blue-600 text-white self-end'} text-sm`}>
+                    {message.content.split('\n').map((line, idx) => (
+                      <p key={idx} className="leading-6">{line}</p>
+                    ))}
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="rounded-2xl bg-slate-100 p-3 text-slate-700 text-sm">Sedang memproses...</div>
+                )}
+              </div>
+              <div className="border-t border-slate-200 bg-white p-4">
+                <form onSubmit={handleChatSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    aria-label="Taip soalan anda"
+                    className="flex-1 rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="Contoh: Berapa jumlah taman MBJB?"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    disabled={chatLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={chatLoading}
+                    className="inline-flex items-center rounded-2xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    Hantar
+                  </button>
+                </form>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  {QUICK_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => sendChatMessage(suggestion)}
+                      className="rounded-full border border-slate-200 bg-slate-100 px-3 py-2 text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setChatOpen((value) => !value)}
+            className="inline-flex items-center gap-3 rounded-full bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-slate-900/10 ring-1 ring-blue-700/20 hover:bg-blue-700"
+          >
+            <span>eTaman Chat</span>
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-blue-600">💬</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2065,7 +2352,6 @@ function LaporanStatistik({ tamanList }) {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
