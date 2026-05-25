@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
@@ -388,10 +389,24 @@ export default function SistemPengurusanTaman() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
+  // Master Data State
+  const [masterDaerahList, setMasterDaerahList] = useState([]);
+
   // Fetch data from Django API
   useEffect(() => {
     fetchTamanList();
+    fetchMasterDaerah();
   }, []);
+
+  const fetchMasterDaerah = async () => {
+    try {
+      const res = await fetch(apiUrl('/api/master/daerah/'));
+      const result = await res.json();
+      if (result.success) setMasterDaerahList(result.data.map(d => d.nama));
+    } catch (e) {
+      console.error('Error fetching master daerah:', e);
+    }
+  };
 
   const fetchTamanList = async () => {
     try {
@@ -815,9 +830,6 @@ export default function SistemPengurusanTaman() {
                 <button onClick={handleExportCSV} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors">
                   <Download className="w-4 h-4" /> <span>Eksport</span>
                 </button>
-                <button onClick={() => setChatOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 transition-colors">
-                  <Bot className="w-4 h-4" /> <span>Chat eTaman</span>
-                </button>
               </div>
             </div>
 
@@ -840,7 +852,7 @@ export default function SistemPengurusanTaman() {
                   className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 >
                   <option value="">Semua Daerah</option>
-                  {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+                  {(masterDaerahList.length ? masterDaerahList : SENARAI_DAERAH).map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 <select 
                   value={filterJenis} 
@@ -1000,7 +1012,8 @@ export default function SistemPengurusanTaman() {
           <BorangTaman 
             tamanSediaAda={viewingTaman} 
             onSave={handleSaveTaman} 
-            onCancel={() => setActiveTab('senarai')} 
+            onCancel={() => setActiveTab('senarai')}
+            daerahList={masterDaerahList}
           />
         )}
 
@@ -1027,7 +1040,7 @@ export default function SistemPengurusanTaman() {
           <LaporanStatistik tamanList={tamanList} />
         )}
         {!loading && activeTab === 'admin' && (
-          <SystemAdmin />
+          <SystemAdmin onMasterDataChange={fetchMasterDaerah} />
         )}
 
       </main>
@@ -1170,7 +1183,7 @@ export default function SistemPengurusanTaman() {
 // ==========================================
 // KOMPONEN: BORANG TAMAN (MODUL 1 & 2 & AI)
 // ==========================================
-function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
+function BorangTaman({ tamanSediaAda, onSave, onCancel, daerahList = [] }) {
   const [formData, setFormData] = useState(tamanSediaAda || {
     nama: '', lokasi: '', daerah: '', keluasan: '', jenis: '', PBT: '',
     kemudahan: { tandas: false, playground: false, parking: false, surau: false },
@@ -1401,7 +1414,7 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
               <label className="text-sm font-medium text-slate-700">Daerah <span className="text-red-500">*</span></label>
               <select required name="daerah" value={formData.daerah} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 bg-white">
                 <option value="" disabled>Pilih Daerah</option>
-                {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+                {(daerahList.length ? daerahList : SENARAI_DAERAH).map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div className="space-y-1">
@@ -2104,7 +2117,7 @@ function ProfilTaman({ taman, onBack }) {
       </div>
 
       {/* Modal Gambar Penuh */}
-      {viewingImage && (
+      {viewingImage && createPortal(
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative max-w-4xl w-full">
             {/* Gambar */}
@@ -2147,7 +2160,7 @@ function ProfilTaman({ taman, onBack }) {
             )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
-export default function SystemAdmin() {
+export default function SystemAdmin({ onMasterDataChange }) {
     const [activeModule, setActiveModule] = useState('master-data'); // master-data | user-accounts | audit-log
     const [loading, setLoading] = useState(false);
 
@@ -103,6 +103,7 @@ export default function SystemAdmin() {
             if (result.success) {
                 await fetchMasterData();
                 setEditingEntity(null);
+                if (activeEntity === 'daerah' && onMasterDataChange) onMasterDataChange();
             } else {
                 alert(result.error || 'Ralat menyimpan data');
             }
@@ -250,36 +251,31 @@ export default function SystemAdmin() {
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
-            <div className="bg-slate-900 text-white p-6">
-                <div className="max-w-7xl mx-auto">
-                    <h1 className="text-2xl font-semibold flex items-center gap-3">
-                        <Settings className="w-7 h-7 text-blue-400" />
-                        PENTADBIRAN SISTEM
-                    </h1>
-                    <p className="text-slate-400 text-sm mt-1">Pengurusan data induk, akaun pengguna, dan log audit</p>
-                </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="bg-white border-b border-slate-200">
-                <div className="max-w-7xl mx-auto flex">
-                    {[
-                        { key: 'master-data', icon: Database, label: 'Data Induk' },
-                        { key: 'user-accounts', icon: Users, label: 'Akaun Pengguna' },
-                        { key: 'audit-log', icon: Shield, label: 'Log Audit' }
-                    ].map(tab => (
-                        <button
-                            key={tab.key}
-                            onClick={() => setActiveModule(tab.key)}
-                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeModule === tab.key
-                                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                }`}
-                        >
-                            <tab.icon className="w-4 h-4" />
-                            {tab.label}
-                        </button>
-                    ))}
+            <div className="space-y-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-200">
+                    <div>
+                        <h2 className="text-xl font-semibold text-slate-900 tracking-tight">PENTADBIRAN SISTEM</h2>
+                        <p className="text-sm text-slate-500 mt-1">Pengurusan data utama, akaun pengguna dan log audit</p>
+                    </div>
+                    <div className="flex gap-0">
+                        {[
+                            { key: 'master-data', icon: Database, label: 'Data Utama' },
+                            { key: 'user-accounts', icon: Users, label: 'Akaun Pengguna' },
+                            { key: 'audit-log', icon: Shield, label: 'Log Audit' }
+                        ].map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveModule(tab.key)}
+                                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeModule === tab.key
+                                        ? 'border-blue-600 text-blue-700 bg-blue-50'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -351,6 +347,15 @@ export default function SystemAdmin() {
                     />
                 )}
             </div>
+            {/* Delete Confirmation Modal - rendered at top level to cover full viewport */}
+            {entityToDelete && (
+                <DeleteConfirmationModal
+                    title="Sahkan Padaman"
+                    message={`Adakah anda pasti mahu memadam ${getEntityLabel(activeEntity).toLowerCase()} "${entityToDelete.nama}"?`}
+                    onConfirm={handleDeleteEntity}
+                    onCancel={() => setEntityToDelete(null)}
+                />
+            )}
         </div>
     );
 }
@@ -365,6 +370,7 @@ function MasterDataManagement({
 }) {
     const [formData, setFormData] = useState({ nama: '', keterangan: '', kategori: '' });
     const [searchQuery, setSearchQuery] = useState('');
+    const [showAddForm, setShowAddForm] = useState(false);
 
     const filteredList = useMemo(() => {
         if (!searchQuery) return entityList;
@@ -374,6 +380,7 @@ function MasterDataManagement({
     }, [entityList, searchQuery]);
 
     const handleEdit = (entity) => {
+        setShowAddForm(true);
         setEditingEntity(entity);
         setFormData({
             nama: entity.nama || '',
@@ -386,6 +393,7 @@ function MasterDataManagement({
         e.preventDefault();
         onSave(formData);
         setFormData({ nama: '', keterangan: '', kategori: '' });
+        setShowAddForm(false);
     };
 
     const entityTabs = [
@@ -397,11 +405,12 @@ function MasterDataManagement({
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Pengurusan Data Induk</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Pengurusan Data Utama</h2>
                 <button
                     onClick={() => {
                         setEditingEntity(null);
                         setFormData({ nama: '', keterangan: '', kategori: '' });
+                        setShowAddForm(true);
                     }}
                     className="flex items-center gap-2 bg-blue-700 text-white px-4 py-2 text-sm font-medium hover:bg-blue-800 transition-colors"
                 >
@@ -418,6 +427,8 @@ function MasterDataManagement({
                         onClick={() => {
                             setActiveEntity(tab.key);
                             setEditingEntity(null);
+                            setFormData({ nama: '', keterangan: '', kategori: '' });
+                            setShowAddForm(false);
                             setSearchQuery('');
                         }}
                         className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeEntity === tab.key
@@ -431,7 +442,7 @@ function MasterDataManagement({
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 gap-6 ${showAddForm ? 'lg:grid-cols-3' : ''}`}>
                 {/* Entity List */}
                 <div className="lg:col-span-2 bg-white border border-slate-200">
                     <div className="p-4 border-b border-slate-200">
@@ -446,34 +457,49 @@ function MasterDataManagement({
                             />
                         </div>
                     </div>
-                    <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-                        {filteredList.length > 0 ? filteredList.map((entity, idx) => (
-                            <div key={entity.id || idx} className="flex items-center justify-between p-4 hover:bg-slate-50">
-                                <div>
-                                    <p className="font-medium text-slate-800 text-sm">{entity.nama}</p>
-                                    {entity.keterangan && <p className="text-xs text-slate-500 mt-0.5">{entity.keterangan}</p>}
-                                    {entity.kategori && <p className="text-xs text-slate-500 mt-0.5">{entity.kategori}</p>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 text-xs ${entity.status === 'Inactive' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                        {entity.status || 'Active'}
-                                    </span>
-                                    <button onClick={() => handleEdit(entity)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition">
-                                        <Edit className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => setEntityToDelete(entity)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 transition">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="p-8 text-center text-slate-400 text-sm">Tiada data {entityLabel.toLowerCase()}.</div>
-                        )}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                    <th className="p-4 font-semibold">{entityLabel}</th>
+                                    {activeEntity === 'status-tanah' && <th className="p-4 font-semibold">Keterangan</th>}
+                                    <th className="p-4 font-semibold text-right">Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredList.length > 0 ? filteredList.map((entity, idx) => (
+                                    <tr key={entity.id || idx} className="hover:bg-slate-50 transition-colors">
+                                        <td className="p-4">
+                                            <p className="font-medium text-slate-800 text-sm">{entity.nama}</p>
+                                        </td>
+                                        {activeEntity === 'status-tanah' && (
+                                            <td className="p-4 text-sm text-slate-500">{entity.keterangan || '-'}</td>
+                                        )}
+                                        <td className="p-4 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button onClick={() => handleEdit(entity)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition rounded">
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => setEntityToDelete(entity)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition rounded">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={activeEntity === 'status-tanah' ? 3 : 2} className="p-8 text-center text-slate-400 text-sm">
+                                            Tiada data {entityLabel.toLowerCase()}.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
                 {/* Add/Edit Form */}
-                <div className="bg-white border border-slate-200 p-6 h-fit">
+                {showAddForm && <div className="bg-white border border-slate-200 p-6 h-fit">
                     <h3 className="text-sm font-semibold text-slate-900 mb-4">
                         {editingEntity ? `Kemaskini ${entityLabel}` : `Tambah ${entityLabel} Baharu`}
                     </h3>
@@ -501,22 +527,6 @@ function MasterDataManagement({
                                 />
                             </div>
                         )}
-                        {activeEntity === 'facility' && (
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
-                                <select
-                                    value={formData.kategori}
-                                    onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
-                                >
-                                    <option value="">Pilih Kategori</option>
-                                    <option value="Sukan">Sukan</option>
-                                    <option value="Rekreasi">Rekreasi</option>
-                                    <option value="Infrastruktur">Infrastruktur</option>
-                                    <option value="Keagamaan">Keagamaan</option>
-                                </select>
-                            </div>
-                        )}
                         <div className="flex gap-2 pt-2">
                             <button
                                 type="submit"
@@ -524,32 +534,22 @@ function MasterDataManagement({
                             >
                                 {editingEntity ? 'Kemaskini' : 'Simpan'}
                             </button>
-                            {editingEntity && (
-                                <button
+                            <button
                                     type="button"
                                     onClick={() => {
                                         setEditingEntity(null);
                                         setFormData({ nama: '', keterangan: '', kategori: '' });
+                                        setShowAddForm(false);
                                     }}
                                     className="px-4 py-2 border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 transition-colors"
                                 >
                                     Batal
                                 </button>
-                            )}
                         </div>
                     </form>
-                </div>
+                </div>}
             </div>
 
-            {/* Delete Confirmation Modal */}
-            {entityToDelete && (
-                <DeleteConfirmationModal
-                    title="Sahkan Padaman"
-                    message={`Adakah anda pasti mahu memadam ${entityLabel.toLowerCase()} "${entityToDelete.nama}"?`}
-                    onConfirm={onDelete}
-                    onCancel={() => setEntityToDelete(null)}
-                />
-            )}
         </div>
     );
 }
