@@ -2076,6 +2076,16 @@ function ProfilTaman({ taman, onBack }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Latitud</p>
+                    <p className="font-medium text-slate-800 text-sm font-mono bg-slate-100 px-2 py-1 inline-block">{taman.latitude || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">Longitud</p>
+                    <p className="font-medium text-slate-800 text-sm font-mono bg-slate-100 px-2 py-1 inline-block">{taman.longitude || '-'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider">PBT</p>
                     <p className="font-medium text-slate-800 text-sm">{taman.PBT || 'Tidak dinyatakan'}</p>
                   </div>
