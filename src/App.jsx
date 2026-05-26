@@ -1,5 +1,10 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 import { 
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
@@ -2263,7 +2268,7 @@ function LaporanStatistik({ tamanList }) {
                     ? 'bg-white border-slate-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer' 
                     : 'bg-slate-50 border-slate-2 opacity-60'
                 }`}
-                disabled={countTaman === 0}
+                
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -2429,26 +2434,131 @@ function LaporanStatistik({ tamanList }) {
     );
 
   }
+  const generatePDFReport = async () => {
+  try {
+    const reportElement =
+      document.getElementById('pdf-report');
+
+    if (!reportElement) return;
+
+    const canvas =
+      await html2canvas(reportElement);
+
+    const imgData =
+      canvas.toDataURL('image/png');
+
+    const pdf =
+      new jsPDF('p', 'mm', 'a4');
+
+    const pdfWidth =
+      pdf.internal.pageSize.getWidth();
+
+    const pdfHeight =
+      (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(
+      imgData,
+      'PNG',
+      0,
+      0,
+      pdfWidth,
+      pdfHeight
+    );
+
+    pdf.save(
+      `${selectedPBT.code}_Laporan_Tahunan.pdf`
+    );
+
+  } catch (error) {
+    console.error(error);
+    alert("Gagal menjana PDF");
+  }
+};
+
+const daerahChartData = {
+  labels: taburanDaerah.map(([daerah]) => daerah),
+
+  datasets: [
+    {
+      label: 'Bilangan Taman',
+      data: taburanDaerah.map(([, count]) => count),
+      backgroundColor: '#2563eb',
+    },
+  ],
+};
+
+const jenisChartData = {
+  labels: taburanJenis.map(([jenis]) => jenis),
+
+  datasets: [
+    {
+      label: 'Jenis Taman',
+      data: taburanJenis.map(([, count]) => count),
+      backgroundColor: [
+        '#2563eb',
+        '#16a34a',
+        '#f59e0b',
+        '#dc2626',
+        '#9333ea',
+      ],
+    },
+  ],
+};
+
+const PBT_LOGOS = {
+  MBJB: "/Crest_of_Johor_Bahru.png",
+  MPKluang: "/mpk_3.png",
+  MPPengerang: "/mpp.png",
+  MDMersing: "/mdmersing.png",
+  MBIP: "/mbip.png",
+  MPMuar: "/MPM-logo.png",
+  MPPn: "/Mp_pontian.png",
+  MDSR: "/mdsr.jpg",
+  MBPG: "/mbpg.png",
+  MPKulai: "/mpkulai.png",
+  MDKT: "/mdkt.png",
+  MDTangkak: "/mdt.png",
+  MPBP: "/mpbp.png",
+  MPSegamat: "/mps.jpg",
+  MDLabis: "/Mdlabis.png",
+  MDYP: "/mdyp.png",
+};
 
   // Tampilkan dashboard untuk PBT yang dipilih
   return (
-    <div className="space-y-8">
+    <>
+    
+    <div id="dashboard-report" className="space-y-8">
       <div className="flex items-center justify-between pb-6 border-b border-slate-200">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{selectedPBT.fullName}</h2>
           <p className="text-sm text-slate-500 mt-1">Laporan & Analitik Data</p>
         </div>
-        <button
-          onClick={() => {
-            setSelectedPBT(null);
-            setAiInsights("");
-          }}
-          className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-200 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Kembali ke Senarai PBT</span>
-        </button>
+
+        <div className="flex items-center gap-2">
+
+  <button
+    onClick={generatePDFReport}
+    className="bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+  >
+    Jana PDF Report
+  </button>
+
+  <button
+    onClick={() => {
+      setSelectedPBT(null);
+      setAiInsights("");
+    }}
+    className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-200 transition-colors"
+  >
+    <ArrowLeft className="w-4 h-4" />
+    <span>Kembali ke Senarai PBT</span>
+  </button>
+
+</div>
       </div>
+
+      
       
       {/* Kad Ringkasan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2497,6 +2607,9 @@ function LaporanStatistik({ tamanList }) {
             })}
             {taburanDaerah.length === 0 && <p className="text-slate-400 text-center py-4 text-sm">Tiada data direkodkan.</p>}
           </div>
+          <div className="mt-8">
+  <Bar data={daerahChartData} />
+</div>
         </div>
 
         {/* Taburan Mengikut Jenis */}
@@ -2523,7 +2636,123 @@ function LaporanStatistik({ tamanList }) {
           </div>
         </div>
       </div>
+
+    <div className="mt-8 flex justify-center">
+  <div className="w-72">
+    <Pie data={jenisChartData} />
+  </div>
+</div>
     </div>
+    
+    <div
+  id="pdf-report"
+  className="bg-white p-10 fixed top-[-9999px] left-[-9999px] w-[1200px]"
+>
+
+  {/* HEADER */}
+  <div className="text-center border-b pb-6 mb-8">
+
+    <img
+  src={PBT_LOGOS[selectedPBT.code]}
+  alt={`${selectedPBT.code} Logo`}
+  className="w-24 h-24 mx-auto mb-4 object-contain"
+/>
+
+    <h1 className="text-3xl font-bold text-slate-800">
+      LAPORAN ANALITIK TAMAN
+    </h1>
+
+    <p className="text-lg text-slate-600 mt-2">
+      {selectedPBT.fullName}
+    </p>
+
+    <p className="text-sm text-slate-400 mt-2">
+      Dijana pada:
+      {new Date().toLocaleDateString()}
+    </p>
+
+  </div>
+
+
+  {/* SUMMARY */}
+  <div className="mb-10">
+
+    <h2 className="text-xl font-bold mb-6">
+      Ringkasan Statistik
+    </h2>
+
+    <div className="grid grid-cols-3 gap-4">
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Jumlah Taman
+        </p>
+
+        <h3 className="text-3xl font-bold">
+          {jumlahTaman}
+        </h3>
+      </div>
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Jumlah Keluasan
+        </p>
+
+        <h3 className="text-3xl font-bold">
+          {jumlahKeluasan.toFixed(2)}
+        </h3>
+      </div>
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Daerah Tertinggi
+        </p>
+
+        <h3 className="text-2xl font-bold">
+          {taburanDaerah.length > 0
+            ? taburanDaerah[0][0]
+            : 'Tiada'}
+        </h3>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* CHARTS */}
+  <div className="mb-10">
+
+    <h2 className="text-xl font-bold mb-6">
+      Analisis Grafik
+    </h2>
+
+    <div className="mb-10">
+      <Bar data={daerahChartData} />
+    </div>
+
+    <div className="w-96 mx-auto">
+      <Pie data={jenisChartData} />
+    </div>
+
+  </div>
+
+
+  {/* AI ANALYSIS */}
+  <div>
+
+    <h2 className="text-xl font-bold mb-4">
+      Rumusan Analisis
+    </h2>
+
+    <div className="bg-slate-50 p-6 rounded-lg whitespace-pre-line">
+      {aiInsights || "Tiada analisis direkodkan."}
+    </div>
+
+  </div>
+
+</div>
+</>
   );
 
 }
@@ -2552,11 +2781,3 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-// THEN continue your code
-function App() {
-
-  // states
-  // calculations
-  // functions
-}
