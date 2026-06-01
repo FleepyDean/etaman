@@ -10,7 +10,7 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
-export default function SystemAdmin({ onMasterDataChange }) {
+export default function SystemAdmin({ onMasterDataChange, staticUsers }) {
     const [activeModule, setActiveModule] = useState('master-data'); // master-data | user-accounts | audit-log
     const [loading, setLoading] = useState(false);
 
@@ -43,7 +43,22 @@ export default function SystemAdmin({ onMasterDataChange }) {
     // ==================== FETCH DATA ON MOUNT ====================
     useEffect(() => {
         fetchMasterData();
-        fetchUserList();
+        if (staticUsers && staticUsers.length > 0) {
+            const mapped = staticUsers.map(u => ({
+                id: u.username,
+                name: u.displayName,
+                username: u.username,
+                email: u.username,
+                pbt: u.pbtCode || 'JLNJ',
+                role: u.role === 'JLNJ_ADMIN' ? 'JLNJ_ADMIN' : 'PBT_OFFICER',
+                status: 'active',
+                last_login: '-',
+                isSystemUser: true
+            }));
+            setUserList(mapped);
+        } else {
+            fetchUserList();
+        }
         fetchAuditLogs();
     }, []);
 
@@ -153,8 +168,9 @@ export default function SystemAdmin({ onMasterDataChange }) {
         return userList.filter(user => {
             const matchSearch = userSearchQuery === '' ||
                 user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                 user.email?.toLowerCase().includes(userSearchQuery.toLowerCase());
-            const matchDistrict = userFilterDistrict === '' || user.district === userFilterDistrict;
+            const matchDistrict = userFilterDistrict === '' || user.pbt === userFilterDistrict || user.district === userFilterDistrict;
             const matchRole = userFilterRole === '' || user.role === userFilterRole;
             const matchStatus = userFilterStatus === '' || user.status === userFilterStatus;
             return matchSearch && matchDistrict && matchRole && matchStatus;
@@ -601,8 +617,10 @@ function UserAccountManagement({
                         onChange={(e) => setUserFilterDistrict(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
                     >
-                        <option value="">Semua Daerah</option>
-                        {daerahList.map(d => <option key={d.id || d.nama} value={d.nama}>{d.nama}</option>)}
+                        <option value="">Semua PBT</option>
+                        {[...new Set(users.map(u => u.pbt || u.district).filter(Boolean))].sort().map(pbt => (
+                            <option key={pbt} value={pbt}>{pbt}</option>
+                        ))}
                     </select>
                     <select
                         value={userFilterRole}
@@ -631,21 +649,20 @@ function UserAccountManagement({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
-                                <th className="p-4 font-semibold">Nama</th>
-                                <th className="p-4 font-semibold">Emel</th>
-                                <th className="p-4 font-semibold">Daerah</th>
+                                <th className="p-4 font-semibold">Nama Pengguna</th>
+                                <th className="p-4 font-semibold">Nama Paparan</th>
+                                <th className="p-4 font-semibold">PBT</th>
                                 <th className="p-4 font-semibold">Peranan</th>
                                 <th className="p-4 font-semibold">Status</th>
-                                <th className="p-4 font-semibold">Log Masuk Terakhir</th>
                                 <th className="p-4 font-semibold text-right">Tindakan</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {users.length > 0 ? users.map(user => (
                                 <tr key={user.id} className="hover:bg-slate-50">
+                                    <td className="p-4 font-mono text-sm text-slate-800 font-medium">{user.username || user.email || '-'}</td>
                                     <td className="p-4 font-medium text-slate-900 text-sm">{user.name || user.nama || '-'}</td>
-                                    <td className="p-4 text-sm text-slate-600">{user.email}</td>
-                                    <td className="p-4 text-sm text-slate-600">{user.district || '-'}</td>
+                                    <td className="p-4 text-sm text-slate-600">{user.pbt || user.district || '-'}</td>
                                     <td className="p-4">
                                         <span className={`px-2 py-0.5 text-xs font-medium ${user.role === 'JLNJ_ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {user.role === 'JLNJ_ADMIN' ? 'JLNJ Admin' : 'PBT Officer'}
@@ -656,23 +673,30 @@ function UserAccountManagement({
                                             {user.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-sm text-slate-500">{user.last_login || '-'}</td>
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-1">
-                                            <button
-                                                onClick={() => handleOpenAssign(user)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 transition"
-                                                title="Tukar Daerah & Peranan"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => onToggleStatus(user)}
-                                                className={`p-2 transition ${user.status === 'active' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
-                                                title={user.status === 'active' ? 'Nyahaktifkan' : 'Aktifkan'}
-                                            >
-                                                {user.status === 'active' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
+                                            {user.isSystemUser ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-400 border border-slate-200 bg-slate-50" title="Akaun diurus oleh sistem">
+                                                    <Shield className="w-3 h-3" /> Sistem
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleOpenAssign(user)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 transition"
+                                                        title="Tukar Daerah & Peranan"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => onToggleStatus(user)}
+                                                        className={`p-2 transition ${user.status === 'active' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                                                        title={user.status === 'active' ? 'Nyahaktifkan' : 'Aktifkan'}
+                                                    >
+                                                        {user.status === 'active' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
