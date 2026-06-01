@@ -383,10 +383,31 @@ const USERS = [
   { username: 'pbtmdyp',      password: 'pbt123', role: 'PBT', displayName: 'MDYP',       pbtCode: 'MDYP' },
 ];
 
+const loadStoredUsers = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('etaman_users') || 'null') || [];
+    return stored.filter((storedUser) => !USERS.some((existing) => existing.username === storedUser.username));
+  } catch {
+    return [];
+  }
+};
+
+const saveUserToLocalStorage = (user) => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('etaman_users') || 'null') || [];
+    const nextUsers = [...stored.filter((existing) => existing.username !== user.username), user];
+    localStorage.setItem('etaman_users', JSON.stringify(nextUsers));
+  } catch (e) {
+    console.error('Could not save user to localStorage', e);
+  }
+};
+
+USERS.push(...loadStoredUsers());
+
 // ==========================================
 // KOMPONEN: HALAMAN LOG MASUK
 // ==========================================
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onSwitchToRegister }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -482,7 +503,20 @@ function LoginPage({ onLogin }) {
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
               {loading ? 'Mengesahkan...' : 'Log Masuk'}
             </button>
+
+            {/* Register Link */}
+
+            <button
+              type="button"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-2.5 text-sm font-semibold transition-colors disabled:bg-slate-400"
+              onClick={onSwitchToRegister}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
+              {loading ? '...' : 'Daftar Akaun Baru'}
+            </button>
           </form>
+          
 
           {/* Role hint */}
           <div className="mt-6 pt-5 border-t border-slate-100 space-y-2">
@@ -508,10 +542,162 @@ function LoginPage({ onLogin }) {
   );
 }
 
+function RegisterPage({ onBack }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+    if (!username.trim() || !password || !confirmPassword) {
+      setError('Sila lengkapkan semua medan.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Kata laluan tidak sepadan.');
+      return;
+    }
+    setLoading(true);
+    setTimeout(async () => {
+      const uname = username.trim();
+      
+      const exists = USERS.some(u => u.username === uname);
+      if (exists) {
+        setError('Nama pengguna telah wujud. Sila pilih yang lain.');
+        setLoading(false);
+        return;
+      }
+
+      const newUser = { username: uname, password, role: 'PBT', displayName: uname, pbtCode: null };
+      let persistedUser = newUser;
+      let savedToDb = false;
+
+      try {
+        const response = await fetch(apiUrl('/api/users/create/'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUser)
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+          persistedUser = { ...newUser, ...result.data };
+          savedToDb = true;
+        } else {
+          console.warn('User registration API failed', result);
+        }
+      } catch (err) {
+        console.warn('User registration API unavailable, falling back to local storage', err);
+      }
+
+      USERS.push(persistedUser);
+      saveUserToLocalStorage(persistedUser);
+
+      setLoading(false);
+      document.getElementById('success-message').classList.remove('hidden');
+      document.getElementById('register-button').classList.add('hidden');
+    }, 500);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 mb-4">
+            <TreePineIcon className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-wide">eTaman</h1>
+          <p className="text-slate-400 text-sm mt-1 uppercase tracking-wider">Daftar Akaun</p>
+        </div>
+        <div className="bg-white p-8 shadow-2xl">
+          <h2 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+            <User className="w-4 h-4 text-blue-600" /> Daftar Akaun Baru
+          </h2>
+          <p id="success-message" className="text-sm text-green-600 mb-4 hidden">Pendaftaran akaun anda telah berjaya! Sila log masuk.</p>
+          <p id="error-message" className="text-sm text-red-600 mb-4 hidden">Pendaftaran akaun anda tidak berjaya. Sila cuba semula.</p>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Nama Pengguna</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                  placeholder="Masukkan nama pengguna"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Kata Laluan</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                  placeholder="Masukkan kata laluan"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Sahkan Kata Laluan</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                  placeholder="Ulang kata laluan"
+                  required
+                />
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+            <div className="grid gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                id="register-button"
+                className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white py-2.5 text-sm font-semibold transition-colors disabled:bg-slate-400"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
+                {loading ? 'Memproses...' : 'Daftar'}
+              </button>
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 text-sm font-semibold transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Kembali ke Log Masuk
+              </button>
+            </div>
+          </form>
+        </div>
+        <p className="text-center text-slate-600 text-xs mt-6">Hak Cipta © 2026 Jabatan Perancangan Bandar Johor</p>
+      </div>
+    </div>
+  );
+}
+
 export default function SistemPengurusanTaman() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('etaman_user')); } catch { return null; }
   });
+  const [authMode, setAuthMode] = useState('login');
   const [tamanList, setTamanList] = useState([]);
   const [activeTab, setActiveTab] = useState('senarai');
   const [editingId, setEditingId] = useState(null);
@@ -547,6 +733,10 @@ export default function SistemPengurusanTaman() {
 
   // Master Data State
   const [masterDaerahList, setMasterDaerahList] = useState([]);
+
+  // Profile Edit State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileFormData, setProfileFormData] = useState({displayName: '', email: '', password: ''});
 
   // Fetch data from Django API
   useEffect(() => {
@@ -911,7 +1101,11 @@ export default function SistemPengurusanTaman() {
     });
   }, [tamanList, searchQuery, filterDaerah, filterJenis, filterPBT, filterKemudahan, currentUser]);
 
-  if (!currentUser) return <LoginPage onLogin={setCurrentUser} />;
+  if (!currentUser) {
+    return authMode === 'register'
+      ? <RegisterPage onBack={() => setAuthMode('login')} />
+      : <LoginPage onLogin={setCurrentUser} onSwitchToRegister={() => setAuthMode('register')} />;
+  }
 
   const isAdmin = currentUser.role === 'JLNJ_ADMIN';
   const isPBT = currentUser.role === 'PBT';
@@ -919,6 +1113,43 @@ export default function SistemPengurusanTaman() {
   const handleLogout = () => {
     sessionStorage.removeItem('etaman_user');
     setCurrentUser(null);
+  };
+
+  const handleOpenProfileModal = () => {
+    setProfileFormData({
+      displayName: currentUser.displayName || '',
+      email: currentUser.email || '',
+      password: ''
+    });
+    setShowProfileModal(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    try {
+      if (!profileFormData.displayName.trim()) {
+        alert('Sila masukkan nama paparan.');
+        return;
+      }
+      
+      const updatedUser = {
+        ...currentUser,
+        displayName: profileFormData.displayName,
+        email: profileFormData.email || currentUser.email
+      };
+      
+      if (profileFormData.password && profileFormData.password.length >= 6) {
+        updatedUser.password = profileFormData.password;
+      }
+      
+      sessionStorage.setItem('etaman_user', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      alert('✅ Profil berjaya dikemaskini!');
+      setShowProfileModal(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Ralat semasa mengemaskini profil.');
+    }
   };
 
   return (
@@ -957,15 +1188,18 @@ export default function SistemPengurusanTaman() {
         </nav>
         {/* User Info & Logout */}
         <div className="p-4 border-t border-slate-800 space-y-3">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={handleOpenProfileModal}
+            className="w-full flex items-center gap-3 p-2 hover:bg-slate-800/50 transition-colors rounded group"
+          >
             <div className={`w-8 h-8 flex items-center justify-center flex-shrink-0 ${isAdmin ? 'bg-blue-600' : 'bg-slate-600'}`}>
               {isAdmin ? <Shield className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-200 truncate">{currentUser.displayName}</p>
-              <p className="text-[10px] text-slate-500">{isAdmin ? 'Admin JLNJ' : 'Pegawai PBT'}</p>
+            <div className="min-w-0 text-left">
+              <p className="text-xs font-semibold text-slate-200 truncate group-hover:text-blue-100">{currentUser.displayName}</p>
+              <p className="text-[10px] text-slate-500 group-hover:text-slate-400">{isAdmin ? 'Admin JLNJ' : 'Pegawai PBT'}</p>
             </div>
-          </div>
+          </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-400 hover:bg-red-900/20 border border-slate-700 hover:border-red-800 transition-colors"
@@ -1287,6 +1521,81 @@ export default function SistemPengurusanTaman() {
                 Padam
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Edit Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between bg-slate-100 px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">Kemaskini Profil</h2>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nama Paparan</label>
+                <input
+                  type="text"
+                  value={profileFormData.displayName}
+                  onChange={(e) => setProfileFormData({...profileFormData, displayName: e.target.value})}
+                  className="w-full px-4 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Masukkan nama paparan"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nama Pengguna</label>
+                <input
+                  type="text"
+                  value={currentUser.username}
+                  disabled
+                  className="w-full px-4 py-2 border border-slate-300 text-sm bg-slate-50 text-slate-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-slate-500 mt-1">Nama pengguna tidak boleh diubah</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Emel (Pilihan)</label>
+                <input
+                  type="email"
+                  value={profileFormData.email}
+                  onChange={(e) => setProfileFormData({...profileFormData, email: e.target.value})}
+                  className="w-full px-4 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Masukkan emel (pilihan)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Kata Laluan Baru (Pilihan)</label>
+                <input
+                  type="password"
+                  value={profileFormData.password}
+                  onChange={(e) => setProfileFormData({...profileFormData, password: e.target.value})}
+                  className="w-full px-4 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Biarkan kosong jika tidak mahu ubah"
+                />
+                <p className="text-xs text-slate-500 mt-1">Minimum 6 aksara jika ingin ubah</p>
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="flex-1 px-4 py-2 text-slate-700 font-medium bg-slate-100 hover:bg-slate-200 transition-colors text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 text-white font-medium bg-blue-700 hover:bg-blue-800 transition-colors text-sm"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
