@@ -10,6 +10,9 @@ class Taman(models.Model):
 	jenis = models.CharField(max_length=80)
 	pbt = models.CharField(max_length=120, blank=True)
 
+	latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+	longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+
 	tandas = models.BooleanField(default=False)
 	playground = models.BooleanField(default=False)
 	parking = models.BooleanField(default=False)

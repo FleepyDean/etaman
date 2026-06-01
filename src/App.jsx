@@ -1191,6 +1191,7 @@ export default function SistemPengurusanTaman() {
 function BorangTaman({ tamanSediaAda, onSave, onCancel, daerahList = [] }) {
   const [formData, setFormData] = useState(tamanSediaAda || {
     nama: '', lokasi: '', daerah: '', keluasan: '', jenis: '', PBT: '',
+    latitude: '', longitude: '',
     kemudahan: { tandas: false, playground: false, parking: false, surau: false },
     deskripsi: ''
   });
@@ -1439,6 +1440,14 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel, daerahList = [] }) {
                 <option value="">Pilih PBT</option>
                 {SENARAI_PBT.map(pbt => <option key={pbt.code} value={pbt.fullName}>{pbt.fullName}</option>)}
               </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Latitud</label>
+              <input type="number" step="any" name="latitude" value={formData.latitude || ''} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: 1.4927" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Longitud</label>
+              <input type="number" step="any" name="longitude" value={formData.longitude || ''} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Cth: 103.7414" />
             </div>
           </div>
         </div>
@@ -2127,6 +2136,41 @@ function ProfilTaman({ taman, onBack }) {
                   })}
               </ul>
             </div>
+          </div>
+
+          {/* Lokasi Peta */}
+          <div className="mt-10 space-y-4">
+            <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center">
+              <MapPin className="w-4 h-4 mr-2 text-blue-600" /> Lokasi Peta
+            </h3>
+            {taman.latitude && taman.longitude ? (
+              <div className="space-y-3">
+                <div className="border border-slate-200 overflow-hidden">
+                  <iframe
+                    title={`Peta ${taman.nama}`}
+                    src={`https://maps.google.com/maps?q=${taman.latitude},${taman.longitude}&z=16&output=embed`}
+                    width="100%"
+                    height="350"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  ></iframe>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${taman.latitude},${taman.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <MapPin className="w-4 h-4" /> Buka di Google Maps
+                </a>
+              </div>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200 p-8 text-center">
+                <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">Koordinat lokasi belum dimasukkan untuk taman ini.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

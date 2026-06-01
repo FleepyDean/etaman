@@ -38,6 +38,8 @@ def serialize_taman(taman, request=None):
         'keluasan': str(taman.keluasan) if taman.keluasan else None,
         'jenis': taman.jenis,
         'PBT': taman.pbt,
+        'latitude': str(taman.latitude) if taman.latitude is not None else None,
+        'longitude': str(taman.longitude) if taman.longitude is not None else None,
         'kemudahan': {
             'tandas': taman.tandas,
             'playground': taman.playground,
@@ -125,6 +127,8 @@ def api_create_taman(request):
             keluasan=data.get('keluasan') or None,
             jenis=data.get('jenis', ''),
             pbt=data.get('PBT', ''),
+            latitude=data.get('latitude') or None,
+            longitude=data.get('longitude') or None,
             tandas=tandas,
             playground=playground,
             parking=parking,
@@ -160,6 +164,10 @@ def api_update_taman(request, pk):
             taman.keluasan = data.get('keluasan') or None
         taman.jenis = data.get('jenis', taman.jenis)
         taman.pbt = data.get('PBT', taman.pbt)
+        if 'latitude' in data:
+            taman.latitude = data.get('latitude') or None
+        if 'longitude' in data:
+            taman.longitude = data.get('longitude') or None
         
         # Handle both nested kemudahan object and flat facility fields
         kemudahan = data.get('kemudahan', {})
