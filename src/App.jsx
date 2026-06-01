@@ -1,14 +1,21 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 import { 
   Trees, Plus, List, BarChart3, Search, Filter, 
   Edit, Trash2, Eye, MapPin, Map, Ruler, CheckSquare, 
   XSquare, Download, Car, Tent, Home, Baby,
   Sparkles, Bot, Loader2, AlignLeft, X, Upload, AlertCircle, ArrowLeft,
   Building2, Check, XIcon, Toilet, ParkingSquare, PlayCircle,
-  TreePineIcon
+  TreePineIcon, Settings
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import SystemAdmin from './SystemAdmin';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
@@ -46,6 +53,174 @@ const callGeminiAPI = async (prompt) => {
       delay *= 2;
     }
   }
+};
+
+const FACILITIES = ['tandas', 'surau', 'playground', 'parking'];
+const JENIS_TAMAN_AI = ['taman tempatan', 'taman rekreasi', 'taman botani', 'taman awam', 'taman bandar', 'hutan bandar', 'taman'];
+const PBT_LOOKUP = [
+  { code: 'MBJB', names: ['mbjb', 'majlis bandaraya johor bahru'] },
+  { code: 'MBIP', names: ['mbip', 'majlis bandaraya iskandar puteri'] },
+  { code: 'MBPG', names: ['mbpg', 'majlis bandaraya pasir gudang'] },
+  { code: 'MPBP', names: ['mpbp', 'majlis perbandaran batu pahat'] },
+  { code: 'MPKluang', names: ['mpkluang', 'majlis perbandaran kluang'] },
+  { code: 'MPMuar', names: ['mpmuar', 'majlis perbandaran muar'] },
+  { code: 'MPKulai', names: ['mpkulai', 'majlis perbandaran kulai'] },
+  { code: 'MPSegamat', names: ['mpsegamat', 'majlis perbandaran segamat'] },
+  { code: 'MPPengerang', names: ['mppengerang', 'majlis perbandaran pengerang'] },
+  { code: 'MPPn', names: ['mppn', 'majlis perbandaran pontian'] },
+  { code: 'MDKT', names: ['mdkt', 'majlis daerah kota tinggi'] },
+  { code: 'MDLabis', names: ['mdlabis', 'majlis daerah labis'] },
+  { code: 'MDMersing', names: ['mdmersing', 'majlis daerah mersing'] },
+  { code: 'MDSR', names: ['mdsr', 'majlis daerah simpang renggam'] },
+  { code: 'MDTangkak', names: ['mdtangkak', 'majlis daerah tangkak'] },
+  { code: 'MDYP', names: ['mdyp', 'majlis daerah yong peng'] }
+];
+
+const QUICK_SUGGESTIONS = [
+  'Berapa jumlah taman yang ada?',
+  'Taman MBJB dengan parking',
+  'Taman yang ada surau dan tandas',
+  'Senarai taman rekreasi',
+  'Apa kemudahan di Taman Merdeka?'
+];
+
+const formatFacilityText = (kemudahan) => {
+  return FACILITIES
+    .filter(key => kemudahan?.[key])
+    .map(item => item === 'parking' ? 'parking' : item)
+    .join(', ');
+};
+
+const formatParkCard = (taman) => {
+  const facilities = formatFacilityText(taman.kemudahan);
+  return `• ${taman.nama} (${taman.daerah}) — ${taman.jenis}${facilities ? `, kemudahan: ${facilities}` : ''}`;
+};
+
+const buildParkSummary = (filtered) => {
+  if (!filtered.length) return 'Maaf, tiada taman yang sepadan dengan kriteria tersebut dalam sistem.';
+  const lines = filtered.slice(0, 6).map(formatParkCard);
+  const more = filtered.length > 6 ? `\nDan ${filtered.length - 6} taman lagi memenuhi kriteria.` : '';
+  return `${filtered.length} taman ditemui:\n${lines.join('\n')}${more}`;
+};
+
+const findPBTMatches = (query) => {
+  const match = PBT_LOOKUP.find((item) => item.names.some(name => query.includes(name)));
+  return match ? [match.code] : [];
+};
+
+const findJenisMatch = (query) => {
+  return JENIS_TAMAN_AI.find((jenis) => query.includes(jenis));
+};
+
+const parseFacilityFilters = (query) => {
+  const filters = {};
+  FACILITIES.forEach((facility) => {
+    if (!query.includes(facility)) return;
+    const negativePattern = new RegExp(`(?:tidak ada|tiada|tanpa)\\s+${facility}|${facility}\\s+(?:tidak ada|tiada|tanpa)`, 'i');
+    filters[facility] = !negativePattern.test(query);
+  });
+  return filters;
+};
+
+const filterTamanList = (tamanList, query) => {
+  const normalized = query.toLowerCase();
+  const facilityFilters = parseFacilityFilters(normalized);
+  const pbtCodes = findPBTMatches(normalized);
+  const jenisFilter = findJenisMatch(normalized);
+
+  return tamanList.filter((taman) => {
+    const facilityMatch = Object.entries(facilityFilters).every(([key, required]) => {
+      return required ? taman.kemudahan?.[key] : !taman.kemudahan?.[key];
+    });
+    const pbtMatch = pbtCodes.length
+      ? pbtCodes.includes(taman.PBT) || pbtCodes.some(code => taman.PBT?.toLowerCase().includes(code.toLowerCase()))
+      : true;
+    const jenisMatch = jenisFilter ? taman.jenis.toLowerCase().includes(jenisFilter) : true;
+    return facilityMatch && pbtMatch && jenisMatch;
+  });
+};
+
+const callOpenAIReply = async (userText, tamanList) => {
+  const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!OPENAI_KEY) return '';
+  const prompt = `Kamu ialah chatbot untuk sistem pengurusan taman. Jawab dalam Bahasa Melayu sahaja. Gunakan data taman berikut:\n${tamanList.map((t) => `${t.nama} | ${t.daerah} | ${t.jenis} | PBT: ${t.PBT} | kemudahan: ${formatFacilityText(t.kemudahan)}`).join('\n')}\n\nSoalan: ${userText}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Anda adalah pembantu Bahasa Melayu untuk sistem pengurusan taman. Gunakan maklumat taman yang tersedia dan jawab secara langsung.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 350
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI error', errorText);
+    return '';
+  }
+
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content?.trim() || '';
+};
+
+export async function getBotReply(userText, tamanList = []) {
+  const normalized = userText.trim().toLowerCase();
+  const countRequest = /berapa|jumlah|berapa banyak/.test(normalized);
+  const hasTamanKeyword = /taman|rekreasi|botani|awam|bandar|hutan/i.test(normalized);
+  const facilityFilters = parseFacilityFilters(normalized);
+  const pbtCodes = findPBTMatches(normalized);
+  const jenisFilter = findJenisMatch(normalized);
+  const filteredByName = tamanList.filter((taman) => normalized.includes(taman.nama.toLowerCase()));
+
+  if (filteredByName.length > 0 && /apa|kemudahan|deskripsi|ciri|info/.test(normalized)) {
+    const descriptions = filteredByName.map((taman) => `• ${taman.nama} (${taman.daerah}): ${taman.deskripsi || 'Tiada deskripsi tersedia.'}`).join('\n');
+    return `Berikut ialah ringkasan taman yang anda tanya:\n${descriptions}`;
+  }
+
+  if (pbtCodes.length || Object.keys(facilityFilters).length || jenisFilter) {
+    const filtered = filterTamanList(tamanList, normalized);
+    if (!filtered.length) {
+      return 'Maaf, saya tidak menemui taman yang sepadan dengan kriteria tersebut. Sila cuba dengan kriteria lain atau semak ejaan PBT / kemudahan anda.';
+    }
+    if (countRequest) {
+      if (pbtCodes.length) {
+        return `Terdapat ${filtered.length} taman di bawah PBT ${pbtCodes.join(', ')}.`;
+      }
+      if (Object.keys(facilityFilters).length) {
+        const facilityText = Object.entries(facilityFilters)
+          .filter(([, value]) => value)
+          .map(([key]) => key)
+          .join(' dan ');
+        return `Terdapat ${filtered.length} taman yang mempunyai ${facilityText}.\n${buildParkSummary(filtered)}`;
+      }
+      if (jenisFilter) {
+        return `Terdapat ${filtered.length} ${jenisFilter} dalam sistem.\n${buildParkSummary(filtered)}`;
+      }
+    }
+    return buildParkSummary(filtered);
+  }
+
+  if (hasTamanKeyword && countRequest) {
+    return `Jumlah taman dalam sistem adalah ${tamanList.length}. Anda boleh tanya tentang PBT, kemudahan, atau jenis taman.`;
+  }
+
+  if (hasTamanKeyword) {
+    const filtered = filterTamanList(tamanList, normalized);
+    if (filtered.length) {
+      return buildParkSummary(filtered);
+    }
+  }
+
+  return `Saya ialah pembantu eTaman. Anda boleh bertanya tentang jumlah taman, PBT tertentu seperti MBJB, atau kemudahan seperti tandas, surau, playground, parking. Contoh: "Taman yang ada surau" atau "Berapa banyak taman MBJB?"`;
 };
 
 // --- DATA AWAL (MOCK DATA) ---
@@ -193,6 +368,15 @@ export default function SistemPengurusanTaman() {
   const [tamanToDelete, setTamanToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Chatbot State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: 'assistant', content: 'Hai! Saya Chatbot eTaman. Tanyakan tentang jumlah taman, PBT atau kemudahan.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollRef = useRef(null);
+
   // Filter & Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDaerah, setFilterDaerah] = useState('');
@@ -210,10 +394,24 @@ export default function SistemPengurusanTaman() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
+  // Master Data State
+  const [masterDaerahList, setMasterDaerahList] = useState([]);
+
   // Fetch data from Django API
   useEffect(() => {
     fetchTamanList();
+    fetchMasterDaerah();
   }, []);
+
+  const fetchMasterDaerah = async () => {
+    try {
+      const res = await fetch(apiUrl('/api/master/daerah/'));
+      const result = await res.json();
+      if (result.success) setMasterDaerahList(result.data.map(d => d.nama));
+    } catch (e) {
+      console.error('Error fetching master daerah:', e);
+    }
+  };
 
   const fetchTamanList = async () => {
     try {
@@ -316,6 +514,39 @@ export default function SistemPengurusanTaman() {
   const handleViewProfil = (taman) => {
     setViewingTaman(taman);
     setActiveTab('profil');
+  };
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
+
+  const appendChatMessage = (message) => {
+    setChatMessages((prev) => [...prev, message]);
+  };
+
+  const sendChatMessage = async (text) => {
+    if (!text.trim()) return;
+    appendChatMessage({ role: 'user', content: text.trim() });
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const answer = await getBotReply(text.trim(), tamanList);
+      appendChatMessage({ role: 'assistant', content: answer });
+    } catch (error) {
+      appendChatMessage({ role: 'assistant', content: 'Maaf, terdapat masalah semasa memproses soalan. Sila cuba lagi.' });
+      console.error(error);
+    } finally {
+      setChatLoading(false);
+      setChatOpen(true);
+    }
+  };
+
+  const handleChatSubmit = async (event) => {
+    event.preventDefault();
+    await sendChatMessage(chatInput);
   };
 
   // --- FUNGSI EKSPORT (MODUL 3) ---
@@ -554,6 +785,12 @@ export default function SistemPengurusanTaman() {
           >
             <BarChart3 className="w-4 h-4" /> <span>Laporan & Analitik</span>
           </button>
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 text-sm transition-colors ${activeTab === 'admin' ? 'bg-purple-900/30 text-purple-100 border-l-2 border-purple-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <Settings className="w-4 h-4" /> <span>Pentadbiran Sistem</span>
+          </button>
         </nav>
         <div className="p-4 text-[10px] text-slate-500 text-center border-t border-slate-800">
           HAK CIPTA © 2026<br/>JABATAN PERANCANGAN BANDAR
@@ -581,7 +818,7 @@ export default function SistemPengurusanTaman() {
                 <h2 className="text-xl font-semibold text-slate-900 tracking-tight">SENARAI TAMAN</h2>
                 <p className="text-sm text-slate-500 mt-1">Pengurusan rekod taman rekreasi dan awam</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button onClick={() => { setEditingId(null); setViewingTaman(null); setActiveTab('borang'); }} className="flex items-center space-x-2 bg-blue-700 text-white px-4 py-2 text-sm font-medium hover:bg-blue-800 transition-colors">
                   <Plus className="w-4 h-4" /> <span>Tambah Rekod</span>
                 </button>
@@ -620,7 +857,7 @@ export default function SistemPengurusanTaman() {
                   className="w-full px-3 py-2 border border-slate-300 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 >
                   <option value="">Semua Daerah</option>
-                  {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+                  {(masterDaerahList.length ? masterDaerahList : SENARAI_DAERAH).map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 <select 
                   value={filterJenis} 
@@ -780,7 +1017,8 @@ export default function SistemPengurusanTaman() {
           <BorangTaman 
             tamanSediaAda={viewingTaman} 
             onSave={handleSaveTaman} 
-            onCancel={() => setActiveTab('senarai')} 
+            onCancel={() => setActiveTab('senarai')}
+            daerahList={masterDaerahList}
           />
         )}
 
@@ -805,6 +1043,9 @@ export default function SistemPengurusanTaman() {
         {/* MODUL 3: LAPORAN & STATISTIK */}
         {!loading && activeTab === 'laporan' && (
           <LaporanStatistik tamanList={tamanList} />
+        )}
+        {!loading && activeTab === 'admin' && (
+          <SystemAdmin onMasterDataChange={fetchMasterDaerah} />
         )}
 
       </main>
@@ -866,6 +1107,80 @@ export default function SistemPengurusanTaman() {
           </div>
         </div>
       )}
+      <div className="fixed bottom-6 right-6 z-50 text-slate-900">
+        <div className="flex flex-col items-end gap-2">
+          {chatOpen && (
+            <div className="w-[360px] md:w-[420px] bg-white border border-slate-200 shadow-2xl rounded-3xl overflow-hidden ring-1 ring-slate-200">
+              <div className="flex items-center justify-between bg-blue-700 px-4 py-3 text-white">
+                <div>
+                  <h3 className="text-sm font-semibold">Chatbot eTaman</h3>
+                  <p className="text-[11px] text-blue-100">Tanyakan tentang taman, PBT, jenis dan kemudahan.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChatOpen(false)}
+                  className="rounded-full bg-blue-800/90 p-2 hover:bg-blue-900 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="max-h-[420px] overflow-y-auto bg-slate-50 p-4 space-y-4" ref={chatScrollRef}>
+                {chatMessages.map((message, index) => (
+                  <div key={index} className={`rounded-2xl p-3 ${message.role === 'assistant' ? 'bg-slate-100 text-slate-900' : 'bg-blue-600 text-white self-end'} text-sm`}>
+                    {message.content.split('\n').map((line, idx) => (
+                      <p key={idx} className="leading-6">{line}</p>
+                    ))}
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="rounded-2xl bg-slate-100 p-3 text-slate-700 text-sm">Sedang memproses...</div>
+                )}
+              </div>
+              <div className="border-t border-slate-200 bg-white p-4">
+                <form onSubmit={handleChatSubmit} className="flex gap-2">
+                  <input
+                    type="text"
+                    aria-label="Taip soalan anda"
+                    className="flex-1 rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="Contoh: Berapa jumlah taman MBJB?"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    disabled={chatLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={chatLoading}
+                    className="inline-flex items-center rounded-2xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    Hantar
+                  </button>
+                </form>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  {QUICK_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => sendChatMessage(suggestion)}
+                      className="rounded-full border border-slate-200 bg-slate-100 px-3 py-2 text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setChatOpen((value) => !value)}
+            className="inline-flex items-center gap-3 rounded-full bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-slate-900/10 ring-1 ring-blue-700/20 hover:bg-blue-700"
+          >
+            
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-blue-600">💬</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -873,7 +1188,7 @@ export default function SistemPengurusanTaman() {
 // ==========================================
 // KOMPONEN: BORANG TAMAN (MODUL 1 & 2 & AI)
 // ==========================================
-function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
+function BorangTaman({ tamanSediaAda, onSave, onCancel, daerahList = [] }) {
   const [formData, setFormData] = useState(tamanSediaAda || {
     nama: '', lokasi: '', daerah: '', keluasan: '', jenis: '', PBT: '',
     kemudahan: { tandas: false, playground: false, parking: false, surau: false },
@@ -1104,7 +1419,7 @@ function BorangTaman({ tamanSediaAda, onSave, onCancel }) {
               <label className="text-sm font-medium text-slate-700">Daerah <span className="text-red-500">*</span></label>
               <select required name="daerah" value={formData.daerah} onChange={handleChange} className="w-full px-4 py-2 border border-slate-300 focus:outline-none focus:border-blue-500 bg-white">
                 <option value="" disabled>Pilih Daerah</option>
-                {SENARAI_DAERAH.map(d => <option key={d} value={d}>{d}</option>)}
+                {(daerahList.length ? daerahList : SENARAI_DAERAH).map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div className="space-y-1">
@@ -1817,7 +2132,7 @@ function ProfilTaman({ taman, onBack }) {
       </div>
 
       {/* Modal Gambar Penuh */}
-      {viewingImage && (
+      {viewingImage && createPortal(
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative max-w-4xl w-full">
             {/* Gambar */}
@@ -1860,7 +2175,7 @@ function ProfilTaman({ taman, onBack }) {
             )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
@@ -1951,15 +2266,152 @@ function LaporanStatistik({ tamanList }) {
                 className={`p-5 border transition-all text-left ${
                   countTaman > 0 
                     ? 'bg-white border-slate-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer' 
-                    : 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                    : 'bg-slate-50 border-slate-2 opacity-60'
                 }`}
-                disabled={countTaman === 0}
+                
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800 text-sm">{pbt.nama}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{pbt.code}</p>
-                  </div>
+                  <div className="flex items-center gap-3">
+
+  {pbt.code === 'MBJB' && (
+    <img
+      src="/Crest_of_Johor_Bahru.png"
+      alt="MBJB Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPKluang' && (
+    <img
+      src="/mpk_3.png"
+      alt="MPK Kluang Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPPengerang' && (
+    <img
+      src="/mpp.png"
+      alt="MPP Pengerang Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDMersing' && (
+    <img
+      src="/mdmersing.png"
+      alt="MD Mersing Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MBIP' && (
+    <img
+      src="/mbip.png"
+      alt="MBIP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPMuar' && (
+    <img
+      src="/MPM-logo.png"
+      alt="MP Muar Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPPn' && (
+    <img
+      src="/Mp_pontian.png"
+      alt="MPPontian Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDSR' && (
+    <img
+      src="/mdsr.jpg"
+      alt="MDSR Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MBPG' && (
+    <img
+      src="/mbpg.png"
+      alt="MBPG Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPKulai' && (
+    <img
+      src="/mpkulai.png"
+      alt="MPKulai Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDKT' && (
+    <img
+      src="/mdkt.png"
+      alt="MDKT Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDTangkak' && (
+    <img
+      src="/mdt.png"
+      alt="MDT Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPBP' && (
+    <img
+      src="/mpbp.png"
+      alt="MPBP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MPSegamat' && (
+    <img
+      src="/mps.jpg"
+      alt="MPS Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDLabis' && (
+    <img
+      src="/Mdlabis.png"
+      alt="MPLapis Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  {pbt.code === 'MDYP' && (
+    <img
+      src="/mdyp.png"
+      alt="MDYP Logo"
+      className="w-10 h-10 object-contain"
+    />
+  )}
+
+  <div>
+    <h3 className="font-semibold text-slate-800">
+      {pbt.nama}
+    </h3>
+
+    <p className="text-slate-500 text-sm">
+      {pbt.code}
+    </p>
+  </div>
+
+</div>
                   <div className="bg-blue-600 text-white w-8 h-8 flex items-center justify-center text-sm font-semibold">
                     {countTaman}
                   </div>
@@ -1980,27 +2432,133 @@ function LaporanStatistik({ tamanList }) {
         </div>
       </div>
     );
+
   }
+  const generatePDFReport = async () => {
+  try {
+    const reportElement =
+      document.getElementById('pdf-report');
+
+    if (!reportElement) return;
+
+    const canvas =
+      await html2canvas(reportElement);
+
+    const imgData =
+      canvas.toDataURL('image/png');
+
+    const pdf =
+      new jsPDF('p', 'mm', 'a4');
+
+    const pdfWidth =
+      pdf.internal.pageSize.getWidth();
+
+    const pdfHeight =
+      (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(
+      imgData,
+      'PNG',
+      0,
+      0,
+      pdfWidth,
+      pdfHeight
+    );
+
+    pdf.save(
+      `${selectedPBT.code}_Laporan_Tahunan.pdf`
+    );
+
+  } catch (error) {
+    console.error(error);
+    alert("Gagal menjana PDF");
+  }
+};
+
+const daerahChartData = {
+  labels: taburanDaerah.map(([daerah]) => daerah),
+
+  datasets: [
+    {
+      label: 'Bilangan Taman',
+      data: taburanDaerah.map(([, count]) => count),
+      backgroundColor: '#2563eb',
+    },
+  ],
+};
+
+const jenisChartData = {
+  labels: taburanJenis.map(([jenis]) => jenis),
+
+  datasets: [
+    {
+      label: 'Jenis Taman',
+      data: taburanJenis.map(([, count]) => count),
+      backgroundColor: [
+        '#2563eb',
+        '#16a34a',
+        '#f59e0b',
+        '#dc2626',
+        '#9333ea',
+      ],
+    },
+  ],
+};
+
+const PBT_LOGOS = {
+  MBJB: "/Crest_of_Johor_Bahru.png",
+  MPKluang: "/mpk_3.png",
+  MPPengerang: "/mpp.png",
+  MDMersing: "/mdmersing.png",
+  MBIP: "/mbip.png",
+  MPMuar: "/MPM-logo.png",
+  MPPn: "/Mp_pontian.png",
+  MDSR: "/mdsr.jpg",
+  MBPG: "/mbpg.png",
+  MPKulai: "/mpkulai.png",
+  MDKT: "/mdkt.png",
+  MDTangkak: "/mdt.png",
+  MPBP: "/mpbp.png",
+  MPSegamat: "/mps.jpg",
+  MDLabis: "/Mdlabis.png",
+  MDYP: "/mdyp.png",
+};
 
   // Tampilkan dashboard untuk PBT yang dipilih
   return (
-    <div className="space-y-8">
+    <>
+    
+    <div id="dashboard-report" className="space-y-8">
       <div className="flex items-center justify-between pb-6 border-b border-slate-200">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{selectedPBT.fullName}</h2>
           <p className="text-sm text-slate-500 mt-1">Laporan & Analitik Data</p>
         </div>
-        <button
-          onClick={() => {
-            setSelectedPBT(null);
-            setAiInsights("");
-          }}
-          className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-200 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Kembali ke Senarai PBT</span>
-        </button>
+
+        <div className="flex items-center gap-2">
+
+  <button
+    onClick={generatePDFReport}
+    className="bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+  >
+    Jana PDF Report
+  </button>
+
+  <button
+    onClick={() => {
+      setSelectedPBT(null);
+      setAiInsights("");
+    }}
+    className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-200 transition-colors"
+  >
+    <ArrowLeft className="w-4 h-4" />
+    <span>Kembali ke Senarai PBT</span>
+  </button>
+
+</div>
       </div>
+
+      
       
       {/* Kad Ringkasan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2049,6 +2607,9 @@ function LaporanStatistik({ tamanList }) {
             })}
             {taburanDaerah.length === 0 && <p className="text-slate-400 text-center py-4 text-sm">Tiada data direkodkan.</p>}
           </div>
+          <div className="mt-8">
+  <Bar data={daerahChartData} />
+</div>
         </div>
 
         {/* Taburan Mengikut Jenis */}
@@ -2076,6 +2637,147 @@ function LaporanStatistik({ tamanList }) {
         </div>
       </div>
 
+    <div className="mt-8 flex justify-center">
+  <div className="w-72">
+    <Pie data={jenisChartData} />
+  </div>
+</div>
     </div>
+    
+    <div
+  id="pdf-report"
+  className="bg-white p-10 fixed top-[-9999px] left-[-9999px] w-[1200px]"
+>
+
+  {/* HEADER */}
+  <div className="text-center border-b pb-6 mb-8">
+
+    <img
+  src={PBT_LOGOS[selectedPBT.code]}
+  alt={`${selectedPBT.code} Logo`}
+  className="w-24 h-24 mx-auto mb-4 object-contain"
+/>
+
+    <h1 className="text-3xl font-bold text-slate-800">
+      LAPORAN ANALITIK TAMAN
+    </h1>
+
+    <p className="text-lg text-slate-600 mt-2">
+      {selectedPBT.fullName}
+    </p>
+
+    <p className="text-sm text-slate-400 mt-2">
+      Dijana pada:
+      {new Date().toLocaleDateString()}
+    </p>
+
+  </div>
+
+
+  {/* SUMMARY */}
+  <div className="mb-10">
+
+    <h2 className="text-xl font-bold mb-6">
+      Ringkasan Statistik
+    </h2>
+
+    <div className="grid grid-cols-3 gap-4">
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Jumlah Taman
+        </p>
+
+        <h3 className="text-3xl font-bold">
+          {jumlahTaman}
+        </h3>
+      </div>
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Jumlah Keluasan
+        </p>
+
+        <h3 className="text-3xl font-bold">
+          {jumlahKeluasan.toFixed(2)}
+        </h3>
+      </div>
+
+      <div className="border p-4 rounded-lg">
+        <p className="text-sm text-slate-500">
+          Daerah Tertinggi
+        </p>
+
+        <h3 className="text-2xl font-bold">
+          {taburanDaerah.length > 0
+            ? taburanDaerah[0][0]
+            : 'Tiada'}
+        </h3>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* CHARTS */}
+  <div className="mb-10">
+
+    <h2 className="text-xl font-bold mb-6">
+      Analisis Grafik
+    </h2>
+
+    <div className="mb-10">
+      <Bar data={daerahChartData} />
+    </div>
+
+    <div className="w-96 mx-auto">
+      <Pie data={jenisChartData} />
+    </div>
+
+  </div>
+
+
+  {/* AI ANALYSIS */}
+  <div>
+
+    <h2 className="text-xl font-bold mb-4">
+      Rumusan Analisis
+    </h2>
+
+    <div className="bg-slate-50 p-6 rounded-lg whitespace-pre-line">
+      {aiInsights || "Tiada analisis direkodkan."}
+    </div>
+
+  </div>
+
+</div>
+</>
   );
+
 }
+
+import {
+  Chart as ChartJS,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+import { Pie, Bar, Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);

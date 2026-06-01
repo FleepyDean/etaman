@@ -292,6 +292,34 @@
     </main>
   </div>
 </div>
+  <!-- Floating Chat Widget -->
+  <div id="etaman-chat" style="position:fixed;right:1rem;bottom:1rem;z-index:1050;font-family:inherit;width:max-content">
+    <div id="etaman-chat-panel" style="display:none;position:absolute;bottom:56px;right:0;width:360px;max-width:92vw;background:#fff;border:1px solid #e6e6e6;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(2,6,23,0.2)">
+      <div style="background:#047857;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:14px">Chatbot eTaman</div>
+          <div style="font-size:11px;opacity:.9">Tanyakan tentang taman, jenis dan kemudahan.</div>
+        </div>
+        <button id="etaman-chat-close" style="background:rgba(255,255,255,0.12);border:0;color:#fff;padding:6px 8px;border-radius:8px">✕</button>
+      </div>
+      <div id="etaman-chat-messages" style="max-height:340px;overflow:auto;padding:12px;background:#f8fafc"></div>
+      <div style="border-top:1px solid #eef2f7;padding:10px;background:#fff">
+        <form id="etaman-chat-form" style="display:flex;gap:8px">
+          <input id="etaman-chat-input" type="text" placeholder="Contoh: Berapa jumlah taman?" style="flex:1;min-width:0;padding:10px;border:1px solid #e6e6e6;border-radius:999px;outline:none" />
+          <button type="submit" class="btn btn-success" style="padding:8px 12px;border-radius:999px;background:#047857;border-color:#047857">Hantar</button>
+        </form>
+        <div id="etaman-chat-suggestions" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="etaman-sugg btn btn-sm btn-light">Berapa jumlah taman?</button>
+          <button class="etaman-sugg btn btn-sm btn-light">Ada taman dengan tandas?</button>
+          <button class="etaman-sugg btn btn-sm btn-light">Taman di Johor Bahru</button>
+          <button class="etaman-sugg btn btn-sm btn-light">Taman yang ada surau</button>
+          <button class="etaman-sugg btn btn-sm btn-light">Taman jenis komuniti</button>
+        </div>
+      </div>
+    </div>
+    <button id="etaman-chat-toggle" class="btn btn-success" style="border-radius:999px;padding:10px 14px;display:flex;align-items:center;gap:8px;background:#047857;border-color:#047857">💬 Chat eTaman</button>
+  </div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -301,5 +329,260 @@
     var safeWidth = Math.max(0, Math.min(100, width));
     el.style.width = safeWidth + '%';
   });
+</script>
+<script>
+// Simple chatbot implementation (client-side) that queries /api/taman/
+(()=>{
+  const toggle = document.getElementById('etaman-chat-toggle');
+  const panel = document.getElementById('etaman-chat-panel');
+  const closeBtn = document.getElementById('etaman-chat-close');
+  const form = document.getElementById('etaman-chat-form');
+  const input = document.getElementById('etaman-chat-input');
+  const messagesEl = document.getElementById('etaman-chat-messages');
+  const suggs = document.querySelectorAll('.etaman-sugg');
+
+  let tamanList = [];
+  let loading = false;
+
+  function appendMessage(role, text){
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom='8px';
+    wrap.style.maxWidth='100%';
+    if(role==='user'){
+      wrap.style.textAlign='right';
+      wrap.innerHTML = `<div style="display:inline-block;background:#047857;color:#fff;padding:8px 12px;border-radius:12px">${escapeHtml(text)}</div>`;
+    } else {
+      wrap.style.textAlign='left';
+      wrap.innerHTML = `<div style="display:inline-block;background:#def7ec;color:#0f172a;padding:8px 12px;border-radius:12px">${escapeHtml(text).replace(/\n/g,'<br/>')}</div>`;
+    }
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadTaman(){
+    try{
+      const resp = await fetch('/api/taman/');
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const data = await resp.json();
+      // normalize to array (handle paginated or wrapped responses)
+      if(Array.isArray(data)){
+        tamanList = data;
+      } else if(Array.isArray(data.results)){
+        tamanList = data.results;
+      } else if(Array.isArray(data.data)){
+        tamanList = data.data;
+      } else if(typeof data === 'object'){
+        // maybe object of id->item, convert
+        tamanList = Object.values(data);
+      } else {
+        tamanList = [];
+      }
+    }catch(e){
+      console.error('Failed to fetch taman list', e);
+      tamanList = [];
+    }
+  }
+
+  function getFacility(t, facility){
+    if(typeof t[facility] === 'boolean') return t[facility];
+    if(t.kemudahan && typeof t.kemudahan[facility] === 'boolean') return t.kemudahan[facility];
+    return false;
+  }
+
+  function formatFacilities(t){
+    const arr = [];
+    if(getFacility(t, 'tandas')) arr.push('tandas');
+    if(getFacility(t, 'playground')) arr.push('playground');
+    if(getFacility(t, 'parking')) arr.push('parking');
+    if(getFacility(t, 'surau')) arr.push('surau');
+    return arr.join(', ');
+  }
+
+  function normalizeQuery(q){
+    return String(q || '').toLowerCase().replace(/[^a-z0-9\u00c0-\u017f\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  const FACILITY_KEYWORDS = {
+    tandas: ['tandas', 'toilet', 'wc', 'tandas awam'],
+    playground: ['playground', 'padang permainan', 'gelanggang', 'taman permainan'],
+    parking: ['parking', 'parkir', 'letak kereta', 'tempat letak kereta'],
+    surau: ['surau']
+  };
+
+  function findFacilityMatches(q){
+    return Object.keys(FACILITY_KEYWORDS).filter((key) => FACILITY_KEYWORDS[key].some((term) => q.includes(term)));
+  }
+
+  function findEntityMatches(field, q){
+    const allValues = Array.from(new Set(tamanList.map((t) => String(t[field] || '').toLowerCase()).filter(Boolean)));
+    return allValues.filter((value) => q.includes(value));
+  }
+
+  function findDaerahMatches(q){
+    return findEntityMatches('daerah', q);
+  }
+
+  function findPBTMatches(q){
+    return findEntityMatches('pbt', q);
+  }
+
+  function findJenisMatches(q){
+    return findEntityMatches('jenis', q);
+  }
+
+  function buildFilterPhrase(facilities, daerahMatches, pbtMatches, jenisMatches){
+    const parts = [];
+    if(facilities.length) parts.push(`yang ada ${facilities.join(' dan ')}`);
+    if(daerahMatches.length) parts.push(`di ${daerahMatches.join(', ')}`);
+    if(pbtMatches.length) parts.push(`di bawah ${pbtMatches.join(', ')}`);
+    if(jenisMatches.length) parts.push(`jenis ${jenisMatches.join(', ')}`);
+    return parts.join(' ');
+  }
+
+  function filterTamanByQuery(q){
+    q = normalizeQuery(q);
+    const facilities = findFacilityMatches(q);
+    const daerahMatches = findDaerahMatches(q);
+    const pbtMatches = findPBTMatches(q);
+    const jenisMatches = findJenisMatches(q);
+    const isCount = q.includes('berapa') || q.includes('jumlah') || q.includes('berapa banyak') || q.includes('bilangan');
+
+    let results = tamanList;
+    if(daerahMatches.length){
+      results = results.filter((t) => daerahMatches.some((d) => (t.daerah || '').toLowerCase().includes(d)));
+    }
+    if(pbtMatches.length){
+      results = results.filter((t) => pbtMatches.some((p) => (t.pbt || '').toLowerCase().includes(p)));
+    }
+    if(jenisMatches.length){
+      results = results.filter((t) => jenisMatches.some((j) => (t.jenis || '').toLowerCase().includes(j)));
+    }
+    if(facilities.length){
+      results = results.filter((t) => facilities.every((f) => getFacility(t, f)));
+    }
+
+    if(!facilities.length && !daerahMatches.length && !pbtMatches.length && !jenisMatches.length){
+      const nameMatches = results.filter((t) => (t.nama || '').toLowerCase().includes(q) || (t.lokasi || '').toLowerCase().includes(q));
+      if(nameMatches.length) results = nameMatches;
+    }
+
+    return {results, isCount, facilities, daerahMatches, pbtMatches, jenisMatches};
+  }
+
+  function buildSummary(res){
+    if(res.length===0) return 'Maaf, tiada rekod ditemui.';
+    const lines = res.slice(0,6).map((t) => `• ${t.nama} (${t.daerah}) — ${t.jenis}${formatFacilities(t)? ' — kemudahan: '+formatFacilities(t):''}`);
+    return `${res.length} taman ditemui:\n${lines.join('\n')}${res.length>6? '\n...dan lebih lagi.' : ''}`;
+  }
+
+  function safeCount(arr){
+    if(!arr) return 0;
+    if(Array.isArray(arr)) return arr.length;
+    if(typeof arr === 'object') return Object.keys(arr).length;
+    return 0;
+  }
+
+  async function getBotReply(text){
+    const question = text.trim();
+    if(question.length===0) return 'Sila taip soalan anda.';
+
+    if(!safeCount(tamanList)) await loadTaman();
+
+    try {
+      const resp = await fetch('/api/chatbot/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ q: question })
+      });
+
+      if(resp.ok){
+        const data = await resp.json();
+        if(data.success && data.reply){
+          return data.reply;
+        }
+      }
+    } catch (e) {
+      console.warn('AI chat request failed', e);
+    }
+
+    const q = normalizeQuery(question);
+    if(['hai', 'hello', 'helo', 'halo', 'selamat pagi', 'selamat petang', 'selamat malam'].some((term) => q.includes(term))){
+      return 'Hai! Saya Chatbot eTaman. Tanyakan tentang taman, PBT, daerah atau kemudahan seperti tandas, parking, playground dan surau.';
+    }
+
+    const {results,isCount,facilities,daerahMatches,pbtMatches,jenisMatches} = filterTamanByQuery(q);
+    const resCount = safeCount(results);
+    const filterPhrase = buildFilterPhrase(facilities, daerahMatches, pbtMatches, jenisMatches);
+    const hasYesNo = q.includes('adakah') || q.includes('ada') || q.includes('bolehkah');
+
+    if(isCount && (facilities.length || daerahMatches.length || pbtMatches.length || jenisMatches.length)){
+      return `Terdapat ${resCount} taman ${filterPhrase}.`;
+    }
+
+    if(facilities.length && resCount>0){
+      if(hasYesNo){
+        return `Ya, terdapat ${resCount} taman ${filterPhrase}.\n` + buildSummary(results);
+      }
+      return `Terdapat ${resCount} taman ${filterPhrase}.\n` + buildSummary(results);
+    }
+
+    if(daerahMatches.length && resCount>0){
+      return `Terdapat ${resCount} taman ${filterPhrase}.\n` + buildSummary(results);
+    }
+
+    if(pbtMatches.length && resCount>0){
+      return `Terdapat ${resCount} taman ${filterPhrase}.\n` + buildSummary(results);
+    }
+
+    if(jenisMatches.length && resCount>0){
+      return `Terdapat ${resCount} taman ${filterPhrase}.\n` + buildSummary(results);
+    }
+
+    if(resCount>0){
+      return buildSummary(results);
+    }
+
+    if(hasYesNo && (facilities.length || daerahMatches.length || pbtMatches.length || jenisMatches.length)){
+      return `Maaf, saya tidak jumpa taman ${filterPhrase}. Cuba soalan lain atau semak ejaan.`;
+    }
+
+    return 'Maaf, saya tidak menjumpai apa-apa maklumat yang sepadan. Cuba soalan lain atau semak ejaan PBT/daerah.';
+  }
+
+  toggle && toggle.addEventListener('click', async ()=>{
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? 'block' : 'none';
+    if(opening){
+      await loadTaman();
+      if(messagesEl.childElementCount === 0){
+        appendMessage('assistant', 'Hai! Saya Chatbot eTaman. Tanyakan tentang jumlah taman, PBT atau kemudahan.');
+      }
+    }
+  });
+  closeBtn && closeBtn.addEventListener('click', ()=> panel.style.display='none');
+
+  form && form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const text = input.value.trim();
+    if(!text) return;
+    appendMessage('user', text);
+    input.value='';
+    appendMessage('assistant', 'Sedang memproses...');
+    const reply = await getBotReply(text);
+    // remove 'Sedang memproses...' and append reply
+    const last = messagesEl.lastChild; if(last) messagesEl.removeChild(last);
+    appendMessage('assistant', reply);
+  });
+
+  suggs.forEach(btn=> btn.addEventListener('click', ()=>{
+    const q = btn.textContent.trim();
+    input.value = q; input.focus();
+  }));
+
+})();
 </script>
 {% endblock %}
